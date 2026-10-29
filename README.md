@@ -6,6 +6,7 @@
 <p align="center">
   <a href="https://fosemfhtm.github.io/html-report-master/demo/transformer.html"><b>데모 보고서 열기</b></a> ·
   <a href="https://fosemfhtm.github.io/html-report-master/gallery.html"><b>부품 갤러리</b></a> ·
+  <a href="https://fosemfhtm.github.io/html-report-master/motion.html"><b>모션 장면 갤러리</b></a> ·
   <a href="#설치"><b>설치</b></a>
 </p>
 
@@ -44,6 +45,7 @@
 - **말하듯 쓰는 글.** 방어 문구, 메타 서술, 명세서식 나열, 작업 이력을 쓰지 않고, 동료에게 설명하듯 "~한다" 평서문으로 쓴다.
 - **부품 갤러리 74개.** 큰 구조, 실물 도식, 작동 모형, 차트, 글 부품을 골라 쓴다. 주제는 모두 설명용 예시다.
 - **한 파일 배포.** 글꼴·그림·상호작용을 모두 넣어 인터넷 없이 열리는 HTML 하나로 묶는다.
+- **모션 발표.** 발표용 자료는 1920×1080 무대에서 스텝마다 멈추는 모션 덱으로 만든다. 제목은 주장 문장, 자막은 스텝마다 한두 문장, 움직임은 걸러 내기·이동·접기·교체처럼 과정을 설명할 때만 쓴다. 다크·라이트 테마, 한/영 전환(선택)을 파일 안에 넣는다. 장면 부품 9개.
 
 | | |
 |---|---|
@@ -89,9 +91,13 @@ skills/html-report-master/
   references/narrative.md     장 구성, 글의 층, 이전에 실패한 이유
   references/design.md        색·글자·배치·부품
   references/gallery.md       부품 74개 목록과 언제 쓰는지
+  references/motion.md        모션 발표의 화면·말투·움직임, 스토리보드, 장면 부품 목록
   assets/report_template.html 디자인 토큰과 페이지 뼈대
   assets/gallery.html         부품 갤러리 (브라우저로 열어 본다)
-  assets/fonts/               Pretendard 가변 글꼴과 라이선스
+  assets/motion_template.html 모션 발표 엔진과 예시 장면 3개
+  assets/motion_gallery.html  모션 장면 부품 9개 (Space로 넘겨 본다)
+  assets/vendor/gsap.min.js   모션 엔진이 쓰는 GSAP 3.12.5
+  assets/fonts/               Pretendard 가변 글꼴, JetBrains Mono(코드용 일부)와 라이선스
   scripts/                    강조색 찾기, 화면 폭별 스크린샷, 단일 파일 만들기
 tools/gallery/                갤러리 부품 원본과 조립 스크립트
 ```
@@ -106,8 +112,10 @@ tools/gallery/                갤러리 부품 원본과 조립 스크립트
 
 - 스크립트·문서·갤러리: [MIT](LICENSE)
 - 글꼴 Pretendard: [SIL Open Font License 1.1](skills/html-report-master/assets/fonts/Pretendard-LICENSE.txt), © Kil Hyung-jin. 보고서 HTML에 글꼴을 넣어 배포하는 것은 허용된다. 글꼴을 수정해 배포할 때는 "Pretendard"라는 이름을 쓸 수 없다.
+- 글꼴 JetBrains Mono(일부 글자만 담은 판): [SIL Open Font License 1.1](skills/html-report-master/assets/fonts/JetBrainsMono-LICENSE.txt), © The JetBrains Mono Project Authors.
+- GSAP 3.12.5(`assets/vendor/gsap.min.js`): GreenSock의 [Standard License](https://gsap.com/standard-license)를 따른다. MIT 라이선스 대상이 아니다.
 - 데모 보고서(`docs/demo/`)에 실은 원문 그림·표: Vaswani et al., "Attention Is All You Need"(NIPS 2017, arXiv:1706.03762). 논문 첫 쪽의 Google 허락 문구("Provided proper attribution is provided, Google hereby grants permission to reproduce the tables and figures in this paper solely for use in journalistic or scholarly works.")에 따라 출처를 밝혀 실었으며, MIT 라이선스 대상이 아니다.
 
 ---
 
-**English summary.** An agent skill for Korean HTML research reports that explain a paper or project well enough that readers no longer need the source. It steers models away from fake box-and-arrow diagrams and spec-sheet prose toward real diagrams, one running example with worked numbers, interactive models where they help, and plain spoken Korean. Ships with a 74-part component gallery, a design-token template, and Node scripts for screenshots and single-file offline builds. Install with `npx skills add fosemfhtm/html-report-master`.
+**English summary.** An agent skill for Korean HTML research reports and stepped motion presentations that explain a paper or project well enough that readers no longer need the source. It steers models away from fake box-and-arrow diagrams and spec-sheet prose toward real diagrams, one running example with worked numbers, interactive models where they help, and plain spoken Korean. Ships with a 74-part report gallery, a 9-scene motion gallery (1920×1080 stage, step-by-step playback, dark/light themes, optional Korean/English toggle), design-token templates, and Node scripts for screenshots, per-step motion checks and single-file offline builds. Install with `npx skills add fosemfhtm/html-report-master`.

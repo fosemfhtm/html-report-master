@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>모션 부품 갤러리</title>
+<!-- 작업 중에는 fonts/, vendor/ 를 상대 경로로 둔다. 배포본은 scripts/build_single_file.mjs 로 한 파일로 만든다. -->
+<style>
+@font-face { font-family: "Pretendard"; src: url("fonts/PretendardVariable.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono.woff2") format("woff2"); font-weight: 100 800; font-display: swap; }
+
+/* ---------- 토큰: 다크(기본)와 라이트. 그림의 색은 모두 이 변수로 쓴다. 그래야 T 키 전환이 그림까지 바뀐다 ---------- */
+:root {
+  --font: "Pretendard", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --mono: "JetBrains Mono", "Pretendard", Consolas, monospace;
+  --ease: cubic-bezier(.2,.8,.2,1);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000; --card: #1c1c1e; --card2: #2c2c2e; --card3: #3a3a3c;
+  --fg: #fff; --fg2: rgb(235 235 245 / .74); --fg3: rgb(235 235 245 / .52); --sep: rgb(84 84 88 / .6);
+  --fill: rgb(118 118 128 / .24); --fill2: rgb(118 118 128 / .16);
+  /* 역할 색: 한 덱 안에서 한 역할은 늘 같은 색 */
+  --c-blue: #0a84ff; --c-indigo: #6d7cff; --c-mint: #00dac3; --c-green: #30d158; --c-yellow: #ffd60a;
+  --c-orange: #ff9230; --c-red: #ff453a; --c-pink: #ff375f; --c-gray: #8e8e93;
+  --accent: var(--c-mint);
+  --code-kw: #ff7ab2; --code-num: #d9c97c; --code-cm: #8a96a3; --code-pun: rgb(235 235 245 / .62);
+  --glass: rgb(40 40 44 / .62); --shadow: 0 10px 30px rgb(0 0 0 / .35);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f2f7; --card: #fff; --card2: #e5e5ea; --card3: #d1d1d6;
+  --fg: #000; --fg2: #3c3c43; --fg3: #6e6e73; --sep: rgb(60 60 67 / .29);
+  --fill: rgb(118 118 128 / .14); --fill2: rgb(118 118 128 / .09);
+  --c-blue: #007aff; --c-indigo: #5856d6; --c-mint: #00a693; --c-green: #24a148; --c-yellow: #c79500;
+  --c-orange: #e8850c; --c-red: #e5383b; --c-pink: #e0245e; --c-gray: #8e8e93;
+  --accent: var(--c-mint);
+  --code-kw: #c41a7f; --code-num: #9a6b00; --code-cm: #6e6e73; --code-pun: #6e6e73;
+  --glass: rgb(255 255 255 / .7); --shadow: 0 10px 30px rgb(0 0 0 / .12);
+}
+
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); overflow: hidden; letter-spacing: -.012em; -webkit-font-smoothing: antialiased; word-break: keep-all; }
+[hidden] { display: none !important; }
+#app { position: relative; height: 100%; }
+#app.idle { cursor: none; }
+#wrap { position: absolute; inset: 0; overflow: hidden; }
+#stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; background: var(--bg); overflow: hidden; }
+.ko, .en { display: none; }
+[data-lang="ko"] .ko, [data-lang="en"] .en { display: inline; }
+.scene { position: absolute; inset: 0; visibility: hidden; }
+.abs { position: absolute; box-sizing: border-box; }
+
+/* ---------- 글자 단계 (1920×1080 무대 기준). 17px 아래는 쓰지 않는다 ---------- */
+.eyebrow { font: 600 20px/1.2 var(--font); letter-spacing: .04em; color: var(--fg3); }
+.t-title { font: 700 48px/1.2 var(--font); letter-spacing: -.025em; text-wrap: balance; }
+.t-h2 { font: 700 34px/1.25 var(--font); letter-spacing: -.02em; }
+.t-h3 { font: 600 28px/1.3 var(--font); letter-spacing: -.015em; }
+.t-body { font: 400 24px/1.42 var(--font); }
+.t-callout { font: 400 22px/1.4 var(--font); }
+.t-meta { font: 400 19px/1.4 var(--font); color: var(--fg2); }
+.t-num { font-variant-numeric: tabular-nums; }
+.t-big { font: 700 64px/1.1 var(--font); font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+
+/* ---------- 자막: 스텝마다 1~2문장 ---------- */
+#caps { position: absolute; left: 160px; right: 160px; top: 944px; height: 116px; display: flex; justify-content: center; pointer-events: none; }
+.cap { position: absolute; max-width: 1600px; text-align: center; font: 500 30px/1.45 var(--font); letter-spacing: -.02em; color: var(--fg); visibility: hidden; text-wrap: balance; }
+
+/* ---------- 면 ---------- */
+.card { background: var(--card); border-radius: 20px; }
+.card2 { background: var(--card2); border-radius: 14px; }
+.pill { display: inline-flex; align-items: center; height: 42px; padding: 0 20px; border-radius: 999px; background: var(--fill); font: 600 21px/1 var(--font); color: var(--fg2); }
+.sep { height: 1px; background: var(--sep); }
+
+/* ---------- 코드 ---------- */
+.code { font-family: var(--mono); white-space: pre; line-height: 1.55; color: var(--fg); letter-spacing: 0; }
+.code .ln { display: block; min-height: 1em; }
+.code .kw { color: var(--code-kw); font-weight: 600; }
+.code .num { color: var(--code-num); }
+.code .fn { color: var(--accent); }
+.code .cm { color: var(--code-cm); font-style: italic; }
+.code .pun { color: var(--code-pun); }
+.code .mk { border-radius: 5px; background: color-mix(in srgb, var(--c-yellow) 18%, transparent); box-shadow: 0 0 0 2px var(--c-yellow); }
+
+/* 식 카드: 위는 말 풀이, 아래는 코드. 코드도 읽히는 크기와 대비로 둔다 */
+.formula { padding: 26px 30px; }
+.formula .say { font: 600 28px/1.35 var(--font); }
+.formula .code { margin-top: 12px; font-size: 20px; color: var(--fg2); white-space: pre-wrap; }
+
+/* ---------- 상태 테두리: 강조·채택·실패 ---------- */
+.ring { position: absolute; inset: -4px; border-radius: inherit; border: 3px solid transparent; pointer-events: none; }
+
+/* ---------- 탐색 도구: 진행 캡슐, 스텝 점, 장면 목록 ---------- */
+#nav { position: absolute; right: 110px; top: 40px; display: flex; gap: 4px; padding: 5px; border-radius: 999px; background: var(--glass); box-shadow: var(--shadow); visibility: hidden; }
+#nav > span { font: 600 18px/1 var(--font); padding: 10px 18px; border-radius: 999px; color: var(--fg3); }
+#nav > span.on { color: #fff; background: var(--accent); }
+#nav > span.done { color: var(--fg2); }
+#dots { position: absolute; right: 24px; bottom: 20px; z-index: 6; display: flex; gap: 8px; pointer-events: none; }
+#dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--fill); }
+#dots i.on { background: var(--fg2); }
+#list { position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgb(0 0 0 / .5); backdrop-filter: blur(8px); }
+#list .box { width: min(1000px, calc(100% - 32px)); max-height: calc(100% - 64px); overflow: auto; box-sizing: border-box; padding: 22px; border-radius: 22px; background: var(--card); display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+#list button { font: 600 16px/1.35 var(--font); text-align: left; color: var(--fg); background: var(--fill2); border: 0; border-radius: 14px; padding: 14px 16px; cursor: pointer; }
+#list button:hover { background: var(--fill); }
+#list button .n { display: block; font: 500 13px var(--mono); color: var(--fg3); margin-bottom: 4px; }
+#list button.cur { outline: 2px solid var(--accent); }
+#hint { position: absolute; left: 20px; bottom: 16px; z-index: 6; padding: 8px 16px; border-radius: 999px; background: var(--glass); color: var(--fg2); font: 500 14px var(--font); transition: opacity .6s; }
+#hint.gone { opacity: 0; pointer-events: none; }
+@media print { #dots, #hint, #list { display: none !important; } }
+</style>
+</head>
+<body>
+<div id="app" data-lang="ko">
+  <div id="wrap"><div id="stage"><div id="nav"></div><div id="caps"></div></div></div>
+  <div id="list" hidden><div class="box"></div></div>
+  <div id="dots" aria-hidden="true"></div>
+  <div id="hint"></div>
+</div>
+
+<script src="vendor/gsap.min.js"></script>
+<script>
+/* ======================= 엔진 =======================
+   장면(scene) 안에 스텝(step)을 쌓는다. 스텝 하나 = 생각 하나 = 자막 하나. 스텝이 끝나면 멈추고, Space/→ 로 다음 스텝을 재생한다.
+   글은 '한국어' 또는 ['한국어', 'English'] 로 쓴다. deck.config({langs: ['ko', 'en']}) 일 때만 L 키로 언어를 바꾼다.
+   보고서에 넣는 내용은 아래 "장면" 부분만 고친다. 엔진은 고치지 않는다. */
+const deck = (() => {
+  const app = document.getElementById('app'), stage = document.getElementById('stage');
+  const capsEl = document.getElementById('caps'), navEl = document.getElementById('nav');
+  const dotsEl = document.getElementById('dots'), listEl = document.getElementById('list'), hintEl = document.getElementById('hint');
+  const NS = 'http://www.w3.org/2000/svg';
+  const cfg = { langs: ['ko'], key: document.title };
+  const tl = gsap.timeline({ paused: true });
+  const scenes = [], beats = [], ambients = [];
+  let T = 0;
+
+  /* ---------- 글 ---------- */
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const tx = v => Array.isArray(v) ? (cfg.langs.length > 1 ? `<span class="ko">${v[0]}</span><span class="en">${v[1]}</span>` : v[0]) : (v ?? '');
+
+  /* ---------- 요소 ---------- */
+  function el(tag, cls, parent, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; if (parent) parent.appendChild(e); return e; }
+  function box(parent, x, y, w, h, cls, html) {
+    const e = el('div', 'abs ' + (cls || ''), parent, html == null ? null : tx(html));
+    Object.assign(e.style, { left: x + 'px', top: y + 'px' }); if (w != null) e.style.width = w + 'px'; if (h != null) e.style.height = h + 'px';
+    return e;
+  }
+  function svg(parent, x, y, w, h) { const s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', `0 0 ${w} ${h}`); s.setAttribute('width', w); s.setAttribute('height', h); Object.assign(s.style, { position: 'absolute', left: x + 'px', top: y + 'px', overflow: 'visible' }); parent.appendChild(s); return s; }
+  /** SVG 요소. text 가 ['한국어', 'English'] 이면 언어별 tspan 두 개로 넣는다 */
+  function sv(tag, attrs, parent, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) { if (k === 'style') e.style.cssText = attrs[k]; else e.setAttribute(k, attrs[k]); }
+    if (Array.isArray(text)) e.innerHTML = cfg.langs.length > 1 ? `<tspan class="ko">${esc(text[0])}</tspan><tspan class="en">${esc(text[1])}</tspan>` : esc(text[0]);
+    else if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e); return e;
+  }
+
+  /* 배치: 머리(섹션·제목) 아래 본문 영역. 무대(늘 같은 자리의 기준 예제)는 왼쪽, 작업대는 오른쪽 */
+  const L = {
+    full: { x: 110, y: 214, w: 1700, h: 700 },
+    stage: { x: 110, y: 214, w: 640, h: 700 },
+    bench: { x: 810, y: 214, w: 1000, h: 700 },
+  };
+  /** 영역을 cols×rows 칸으로 나눈다. 칸 하나는 {x, y, w, h} */
+  function grid(r, cols, rows = 1, gap = 24) {
+    const w = (r.w - gap * (cols - 1)) / cols, h = (r.h - gap * (rows - 1)) / rows, out = [];
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) out.push({ x: r.x + i * (w + gap), y: r.y + j * (h + gap), w, h });
+    return out;
+  }
+
+  /* ---------- 코드 강조: «…» 로 감싼 부분은 노란 표시 ---------- */
+  const KW = new Set(['def', 'return', 'lambda', 'if', 'else', 'for', 'in', 'and', 'or', 'not', 'let', 'const', 'function', 'while', 'SELECT', 'FROM', 'WHERE']);
+  function code(src) {
+    let inMark = false; const out = [];
+    for (const line of String(src).split('\n')) {
+      let h = inMark ? '<span class="mk">' : '', rest = line, comment = '';
+      const ci = line.indexOf('#'); if (ci >= 0) { rest = line.slice(0, ci); comment = line.slice(ci); }
+      const re = /(«|»|[A-Za-z_][\w.]*|\d+(?:\.\d+)?|\s+|.)/g; let m;
+      while ((m = re.exec(rest))) {
+        const t = m[0];
+        if (t === '«') { h += '<span class="mk">'; inMark = true; continue; }
+        if (t === '»') { h += '</span>'; inMark = false; continue; }
+        if (KW.has(t)) h += `<span class="kw">${t}</span>`;
+        else if (/^\d/.test(t)) h += `<span class="num">${t}</span>`;
+        else if (/^[A-Za-z_]/.test(t) && rest.slice(m.index + t.length).startsWith('(')) h += `<span class="fn">${esc(t)}</span>`;
+        else if (/^[A-Za-z_\s]/.test(t)) h += esc(t);
+        else h += `<span class="pun">${esc(t)}</span>`;
+      }
+      if (inMark) h += '</span>';
+      if (comment) h += `<span class="cm">${esc(comment)}</span>`;
+      out.push(`<span class="ln">${h || ' '}</span>`);
+    }
+    return out.join('');
+  }
+  function codeBox(parent, x, y, w, h, src, size = 22) { const e = box(parent, x, y, w, h, 'code'); e.innerHTML = code(src); e.style.fontSize = size + 'px'; return e; }
+  /** 식 카드: 위 줄은 말 풀이, 아래는 코드 */
+  function formula(parent, x, y, w, say, src) {
+    const c = box(parent, x, y, w, null, 'card formula');
+    el('div', 'say', c, tx(say));
+    if (src) { const k = el('div', 'code', c); k.innerHTML = code(src); }
+    return c;
+  }
+  /** 상태 테두리를 단다. state: 'hi'(노랑) | 'ok'(초록) | 'bad'(빨강) | 'acc'(대표색) */
+  function ring(target) { let r = target.querySelector(':scope > .ring'); if (!r) { r = el('div', 'ring', target); if (getComputedStyle(target).position === 'static') target.style.position = 'relative'; } return r; }
+  const STATE = { hi: 'var(--c-yellow)', ok: 'var(--c-green)', bad: 'var(--c-red)', acc: 'var(--accent)' };
+
+  /* ---------- 장면과 스텝 ---------- */
+  /**
+   * deck.scene(id, {eyebrow, title, sub, nav: {items, on}}, (s, k) => { ... })
+   *  s: 장면 요소. 처음부터 보일 요소는 그냥 만들고, 스텝에서 나타날 요소는 k.hide() 로 숨겨 둔다.
+   *  k.step(caption, () => { k.appear(...); k.count(...); ... }) 로 스텝을 쌓는다. 시각(at)은 스텝 시작부터 초.
+   */
+  function scene(id, head, build) {
+    const s = el('div', 'scene', stage); s.id = id;
+    const sc = { id, head, el: s, start: T, steps: [] };
+    scenes.push(sc);
+    // 머리: 섹션(eyebrow) + 주장 문장 제목 + 보조 줄
+    const hd = [];
+    if (head.eyebrow) hd.push(box(s, 110, 64, 1500, null, 'eyebrow', head.eyebrow));
+    if (head.title) hd.push(box(s, 110, 96, 1640, null, 't-title', head.title));
+    if (head.sub) hd.push(box(s, 110, 160, 1640, null, 't-meta', head.sub));
+    const intro = gsap.timeline();
+    intro.fromTo(s, { autoAlpha: 0 }, { autoAlpha: 1, duration: .45, ease: 'power1.out' }, 0);
+    if (hd.length) intro.from(hd, { autoAlpha: 0, y: 14, duration: .5, stagger: .08, ease: 'power2.out' }, .1);
+    let cur = null;
+    const k = {
+      L, grid, el, box, svg, sv, code, codeBox, formula, tx,
+      hide(els) { gsap.set(arr(els), { autoAlpha: 0 }); },
+      step(caption, fn) {
+        cur = gsap.timeline(); cur.caption = caption; fn && fn(); sc.steps.push(cur); cur = null;
+      },
+      /** 나타나기: 아래에서 14px 올라오며. stagger 로 차례로 */
+      appear(els, at = 0, o = {}) { need(); const a = arr(els); gsap.set(a, { autoAlpha: 0 }); cur.fromTo(a, { autoAlpha: 0, y: o.y ?? 14, scale: o.scale ?? 1 }, { autoAlpha: 1, y: 0, scale: 1, duration: o.d ?? .45, stagger: o.stagger ?? 0, ease: 'power2.out' }, at); },
+      fade(els, at = 0, d = .3) { need(); cur.to(arr(els), { autoAlpha: 0, duration: d, ease: 'power1.in' }, at); },
+      dim(els, at = 0, to = .25) { need(); cur.to(arr(els), { opacity: to, duration: .35 }, at); },
+      /** 위치·크기·색 등 임의 속성 변화 */
+      to(els, vars, at = 0) { need(); cur.to(arr(els), Object.assign({ duration: .5, ease: 'power2.inOut' }, vars), at); },
+      /** 숫자 세기 */
+      count(node, from, to, at = 0, d = .8, fmt = v => Math.round(v).toLocaleString('en-US')) { need(); const o = { v: from }; node.textContent = fmt(from); cur.to(o, { v: to, duration: d, ease: 'power1.inOut', onUpdate: () => node.textContent = fmt(o.v) }, at); },
+      /** 타자: 한 글자씩. 코드면 끝난 뒤 강조색을 입힌다 */
+      type(node, text, at = 0, d = 1.2, isCode = false) { need(); const o = { n: 0 }; node.textContent = ''; cur.to(o, { n: text.length, duration: d, ease: 'none', onUpdate: () => { const t = text.slice(0, Math.round(o.n)); if (isCode && o.n >= text.length) node.innerHTML = code(t); else node.textContent = t; } }, at); },
+      /** 선 그리기: SVG path/line/polyline 을 따라 그린다 */
+      draw(paths, at = 0, d = .8) { need(); arr(paths).forEach(p => { const len = p.getTotalLength(); gsap.set(p, { strokeDasharray: len, strokeDashoffset: len }); cur.set(p, { autoAlpha: 1 }, at); cur.to(p, { strokeDashoffset: 0, duration: d, ease: 'power1.inOut' }, at); }); },
+      /** 상태 테두리: 강조(hi)·채택(ok)·실패(bad) */
+      mark(target, state = 'hi', at = 0) { need(); const r = ring(target); cur.to(r, { borderColor: STATE[state], duration: .25 }, at); },
+      unmark(target, at = 0) { need(); cur.to(ring(target), { borderColor: 'transparent', duration: .25 }, at); },
+      /** 깜빡임: 바뀐 곳을 짚는다 */
+      flash(target, at = 0) { need(); cur.fromTo(target, { filter: 'brightness(2.2)' }, { filter: 'brightness(1)', duration: .6, ease: 'power2.out' }, at); },
+      /** 접기: 여러 요소가 대상 자리로 모여 사라지고 대상이 나타난다 */
+      fold(els, target, at = 0, d = .6) {
+        need();
+        const tx0 = parseFloat(target.style.left) + target.offsetWidth / 2, ty0 = parseFloat(target.style.top) + target.offsetHeight / 2;
+        arr(els).forEach(e => { const ex = parseFloat(e.style.left) + e.offsetWidth / 2, ey = parseFloat(e.style.top) + e.offsetHeight / 2; cur.to(e, { x: tx0 - ex, y: ty0 - ey, scale: .3, autoAlpha: 0, duration: d, ease: 'power2.in' }, at); });
+        gsap.set(target, { autoAlpha: 0 }); cur.fromTo(target, { autoAlpha: 0, scale: .6 }, { autoAlpha: 1, scale: 1, duration: .45, ease: 'back.out(1.6)' }, at + d - .1);
+      },
+      /** 쉬는 시간: 스텝 끝에 여유를 둔다 */
+      hold(sec) { need(); cur.to({}, { duration: sec }, '>'); },
+      /** 장면이 보이는 동안 계속 도는 배경 움직임(예: 차량 흐름). fn(tl) 안에서 반복 타임라인을 만든다 */
+      ambient(fn) { const a = gsap.timeline({ repeat: -1, paused: true }); fn(a); ambients.push({ sc, a }); },
+    };
+    function need() { if (!cur) throw new Error(`장면 ${id}: 움직임은 k.step(...) 안에서 만든다`); }
+    build(s, k);
+
+    // 타임라인 조립: 장면 등장 → 스텝들 차례로. 스텝 끝마다 멈춤(beat)
+    tl.add(intro, T);
+    let t = T + .5;
+    if (!sc.steps.length) sc.steps.push(Object.assign(gsap.timeline(), { caption: null }));
+    sc.steps.forEach((st, i) => {
+      const len = Math.max(st.duration(), .6);
+      tl.add(st, t);
+      if (st.caption) {
+        const c = el('div', 'cap', capsEl, tx(st.caption));
+        tl.to(c, { autoAlpha: 1, duration: .3 }, t);
+        tl.to(c, { autoAlpha: 0, duration: .25 }, t + len + (i === sc.steps.length - 1 ? .45 : .05));
+      }
+      t += len;
+      beats.push({ t, scene: scenes.length - 1, step: i });
+    });
+    sc.end = t;
+    tl.to(s, { autoAlpha: 0, duration: .4 }, t + .5);
+    T = t + .5;
+    return sc;
+  }
+  const arr = v => (Array.isArray(v) || v instanceof NodeList) ? [...v] : [v];
+
+  /* ---------- 재생 ---------- */
+  let bi = -1, stopAt = null, playAll = false;
+  const sceneOf = t => { let k = 0; scenes.forEach((s, i) => { if (t >= s.start - 1e-6) k = i; }); return k; };
+  function ui() {
+    const t = tl.time(), k = sceneOf(t), sc = scenes[k];
+    const mine = beats.filter(b => b.scene === k), done = mine.filter(b => t >= b.t - .05).length;
+    dotsEl.innerHTML = mine.map((b, i) => `<i class="${i < done ? 'on' : ''}"></i>`).join('');
+    const nav = sc.head.nav;
+    if (nav) { navEl.style.visibility = 'visible'; navEl.innerHTML = nav.items.map((it, i) => `<span class="${i === nav.on ? 'on' : i < nav.on ? 'done' : ''}">${tx(it)}</span>`).join(''); }
+    else navEl.style.visibility = 'hidden';
+    ambients.forEach(o => { const on = o.sc === sc; if (on && o.a.paused()) o.a.play(); else if (!on && !o.a.paused()) o.a.pause(0); });
+  }
+  tl.eventCallback('onUpdate', () => { if (stopAt !== null && !playAll && tl.time() >= stopAt - 1e-4) { const s = stopAt; stopAt = null; tl.pause(s); } ui(); });
+  function seek(t) { tl.pause(); tl.seek(Math.max(0, Math.min(tl.duration(), t)), false); ui(); }
+  function beatIndexAt(t) { let i = -1; beats.forEach((b, j) => { if (t >= b.t - .05) i = j; }); return i; }
+  function next() {
+    playAll = false;
+    if (!tl.paused() && stopAt !== null) { const s = stopAt; stopAt = null; seek(s); return; }
+    const i = beatIndexAt(tl.time()) + 1; if (i >= beats.length) return;
+    stopAt = beats[i].t;
+    if (beats[i].scene !== sceneOf(tl.time()) && i > 0) seek(scenes[beats[i].scene].start);
+    tl.play();
+  }
+  function prev() { playAll = false; stopAt = null; const i = beatIndexAt(tl.time() - .06); seek(i <= 0 ? 0 : beats[i - 1].t); }
+  function goScene(k) { playAll = false; stopAt = null; seek(scenes[k].start); next(); }
+  function toggleAll() { stopAt = null; playAll = !playAll; if (playAll) tl.play(); else tl.pause(); }
+
+  /* ---------- 장면 목록, 언어, 테마, 크기 맞춤 ---------- */
+  function buildList() {
+    const b = listEl.querySelector('.box');
+    b.innerHTML = '';
+    scenes.forEach((sc, i) => { const btn = el('button', '', b, `<span class="n">${String(i + 1).padStart(2, '0')} · ${sc.id}</span>${tx(sc.head.title || sc.head.eyebrow || sc.id)}`); btn.onclick = e => { e.stopPropagation(); listEl.hidden = true; goScene(i); }; });
+  }
+  function toggleList() { listEl.hidden = !listEl.hidden; if (!listEl.hidden) [...listEl.querySelectorAll('button')].forEach((b, i) => b.classList.toggle('cur', i === sceneOf(tl.time()))); }
+  listEl.addEventListener('click', () => listEl.hidden = true);
+  const store = (k, v) => { try { localStorage.setItem(cfg.key + k, v); } catch (e) {} };
+  const load = k => { try { return localStorage.getItem(cfg.key + k); } catch (e) { return null; } };
+  function setLang(l) { app.dataset.lang = l; document.documentElement.lang = l; store(':lang', l); }
+  function setTheme(t) { document.documentElement.dataset.theme = t; store(':theme', t); }
+  const wrap = document.getElementById('wrap');
+  function fit() { const w = wrap.clientWidth, h = wrap.clientHeight, s = Math.min(w / 1920, h / 1080); stage.style.transform = `translate(${(w - 1920 * s) / 2}px, ${(h - 1080 * s) / 2}px) scale(${s})`; }
+  new ResizeObserver(fit).observe(wrap);
+  let idleT; const wake = () => { app.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => app.classList.add('idle'), 2500); };
+  ['mousemove', 'pointerdown', 'keydown'].forEach(e => document.addEventListener(e, wake));
+
+  document.addEventListener('keydown', e => {
+    const k = e.key;
+    if (!listEl.hidden && !'gG'.includes(k) && k !== 'Escape') return;
+    if ([' ', 'Enter', 'ArrowRight', 'PageDown', 'ArrowDown'].includes(k)) { e.preventDefault(); next(); }
+    else if (['ArrowLeft', 'PageUp', 'ArrowUp', 'Backspace'].includes(k)) { e.preventDefault(); prev(); }
+    else if (k === 'g' || k === 'G') toggleList();
+    else if (k === 'k' || k === 'K') toggleAll();
+    else if ((k === 'l' || k === 'L') && cfg.langs.length > 1) setLang(app.dataset.lang === cfg.langs[0] ? cfg.langs[1] : cfg.langs[0]);
+    else if (k === 't' || k === 'T') setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+    else if (k === 'f' || k === 'F') { if (!document.fullscreenElement) app.requestFullscreen?.(); else document.exitFullscreen(); }
+    else if (k === 'Escape') listEl.hidden = true;
+    else if (k === 'Home') seek(0);
+    else if (k === 'End') seek(beats[beats.length - 1].t);
+  });
+  stage.addEventListener('click', e => { if (e.target.closest('button, a, input')) return; next(); });
+
+  /** 모든 장면을 만든 뒤 한 번 부른다 */
+  function start() {
+    fit(); buildList(); wake();
+    const keys = 'Space · → 다음   ← 이전   G 장면 목록   K 연속 재생   T 테마' + (cfg.langs.length > 1 ? '   L 언어' : '') + '   F 전체 화면';
+    hintEl.textContent = keys; setTimeout(() => hintEl.classList.add('gone'), 5000);
+    setLang(load(':lang') && cfg.langs.includes(load(':lang')) ? load(':lang') : cfg.langs[0]);
+    const th = load(':theme'); if (th) setTheme(th);
+    const h = location.hash.slice(1), k = scenes.findIndex(s => s.id === h);
+    seek(k >= 0 ? scenes[k].start : 0);
+    next();
+    // 검사 스크립트가 쓰는 창구
+    window.__deck = { beats: beats.map(b => ({ scene: scenes[b.scene].id, step: b.step, t: b.t })), seekBeat: i => seek(beats[i].t), setTheme, setLang };
+  }
+  return { config: o => Object.assign(cfg, o), scene, start, L, grid, tx, code };
+})();
+</script>
+
+<script>
+/* ======================= 장면 (이 부분만 자료에 맞게 바꾼다) =======================
+   예시 주제: 배송 경로 탐색. 무대(왼쪽)에는 늘 같은 배송 지도, 작업대(오른쪽)에는 그 장면의 설명. */
+deck.config({ langs: ['ko', 'en'] });   // 한 언어만 쓰면 ['ko'] 로 두고 글을 문자열로 쓴다
+
+// 늘 같은 자리의 기준 예제: 차고지 하나와 배송지 여섯 곳
+const STOPS = [[120, 120], [470, 90], [520, 330], [300, 420], [90, 560], [430, 600]], DEPOT = [300, 260];
+function deliveryMap(s, k) {
+  const g = k.svg(s, k.L.stage.x, k.L.stage.y, 640, 700);
+  for (let i = 0; i <= 6; i++) { k.sv('line', { x1: 0, y1: i * 110 + 20, x2: 620, y2: i * 110 + 20, style: 'stroke:var(--card2);stroke-width:14' }, g); k.sv('line', { x1: i * 100 + 10, y1: 0, x2: i * 100 + 10, y2: 690, style: 'stroke:var(--card2);stroke-width:14' }, g); }
+  const route = k.sv('polyline', { points: [DEPOT, ...STOPS, DEPOT].map(p => p.join(',')).join(' '), style: 'fill:none;stroke:var(--accent);stroke-width:6;stroke-linejoin:round' }, g);
+  k.sv('rect', { x: DEPOT[0] - 22, y: DEPOT[1] - 22, width: 44, height: 44, rx: 8, style: 'fill:var(--c-orange)' }, g);
+  const dots = STOPS.map(([x, y], i) => { k.sv('circle', { cx: x, cy: y, r: 18, style: 'fill:var(--card3)' }, g); return k.sv('text', { x, y: y + 7, 'text-anchor': 'middle', style: 'font:700 20px var(--font);fill:var(--fg)' }, g, String(i + 1)); });
+  return { g, route, dots };
+}
+
+
+// Illustrative values throughout: initial route 28.4; accepted search 25.6 → 22.1.
+const roles = { items: [
+  ['<b style="color:var(--c-indigo);background:var(--bg);padding:4px 6px;border-radius:8px">제안</b>', '<b style="color:var(--c-indigo);background:var(--bg);padding:4px 6px;border-radius:8px">Propose</b>'],
+  ['<b style="color:var(--c-orange);background:var(--bg);padding:4px 6px;border-radius:8px">평가</b>', '<b style="color:var(--c-orange);background:var(--bg);padding:4px 6px;border-radius:8px">Evaluate</b>'],
+  ['<b style="color:var(--c-yellow);background:var(--bg);padding:4px 6px;border-radius:8px">편집</b>', '<b style="color:var(--c-yellow);background:var(--bg);padding:4px 6px;border-radius:8px">Edit</b>'],
+  ['<b style="color:var(--accent);background:var(--bg);padding:4px 6px;border-radius:8px">라이브러리</b>', '<b style="color:var(--accent);background:var(--bg);padding:4px 6px;border-radius:8px">Library</b>'] ] };
+function head(id, part, en, title, english, on) {
+  return {eyebrow: [id+' · '+part, id+' · '+en], title:[title,english], nav:{items:roles.items,on}};
+}
+function label(k,g,x,y,ko,en,size=22,color='--fg2',anchor='start') {
+  return k.sv('text',{x,y,'text-anchor':anchor,style:`font:500 ${size}px var(--font);fill:var(${color})`},g,[ko,en]);
+}
+function mapQuiet(s,k) {const m=deliveryMap(s,k); k.hide(m.route); return m;}
+function stopRing(k,m,i,color) {return k.sv('circle',{cx:STOPS[i][0],cy:STOPS[i][1],r:29,style:`fill:none;stroke:var(${color});stroke-width:5`},m.g);}
+
+deck.scene('MS-01',head('MS-01','표지','Cover','짧은 프로그램이 여섯 배송지의 방문 순서를 정한다','A short program orders six delivery stops',0),(s,k)=>{
+  const m=deliveryMap(s,k); k.hide(m.route);
+  k.box(s,k.L.bench.x,330,k.L.bench.w,160,'t-big',['한 차고지에서 출발해\n여섯 곳을 잇는다','One depot.\nSix delivery stops.']).style.whiteSpace='pre-line';
+  k.box(s,k.L.bench.x,535,k.L.bench.w,70,'t-h3',['제안하고, 검사하고, 비용을 낮춘다','Propose, check, and lower the cost']);
+  k.codeBox(s,k.L.bench.x,660,k.L.bench.w,80,'route = argmin(orders(), cost)',28);
+  k.step(['배송 차량은 차고지에서 출발해 여섯 곳을 돌고 돌아온다. 이 순서를 바꾸면 거리와 지연이 함께 바뀐다.','The van leaves the depot, visits six stops and comes back. Changing the order changes both distance and lateness.'],()=>{k.draw(m.route,.2,1.2); k.hold(1.2);});
+});
+
+deck.scene('MS-02',head('MS-02','문제 카드','Problem cards','네 방법은 같은 여섯 배송지에서 서로 다른 제약을 가진다','Four methods face different limits on the same six stops',1),(s,k)=>{
+  mapQuiet(s,k);
+  const data=[
+    [['고정 규칙','Fixed rules'],['+ 바로 실행한다','+ Runs immediately'],['− 시간창 변화에 약하다','− Brittle time windows'],'--fg2'],
+    [['최적화 솔버','Optimisation solver'],['+ 제약을 정확히 반영한다','+ Enforces constraints'],['− 탐색 시간이 길다','− Long search time'],'--c-orange'],
+    [['학습 모델','Learned model'],['+ 빠르게 순서를 제안한다','+ Proposes orders quickly'],['− 학습 데이터가 필요하다','− Needs training data'],'--c-indigo'],
+    [['프로그램 탐색','Program search'],['+ 규칙을 코드로 남긴다','+ Keeps executable rules'],['− 틀린 코드를 낼 수 있다','− Can emit broken code'],'--accent']];
+  const cards=[],weak=[];
+  k.grid(k.L.bench,2,2,24).forEach((r,i)=>{const c=k.box(s,r.x,r.y,r.w,r.h,'card'); cards.push(c);
+    const t=k.box(c,26,30,r.w-52,70,'t-h3',data[i][0]);t.style.color=`var(${data[i][3]})`;
+    k.box(c,26,132,r.w-52,60,'t-callout',data[i][1]); weak.push(k.box(c,26,225,r.w-52,68,'t-callout',data[i][2]));});
+  k.hide(cards);
+  k.step(['네 방법은 같은 배송지 여섯 곳의 순서를 정한다. 카드의 + 줄이 각 방법의 장점이다.','All four methods order the same six stops. The + line on each card is its strength.'],()=>{k.appear(cards,0,{stagger:.16});k.hold(1.4);});
+  k.step(['노란 줄이 각 방법의 약점이다. 프로그램 탐색은 틀린 코드를 낼 수 있어서, 실행 전에 검사한다.','The yellow lines mark each weakness. Program search can emit broken code, so it checks programs before running them.'],()=>{weak.forEach(e=>k.mark(e,'hi'));k.hold(1.8);});
+});
+
+deck.scene('MS-03',head('MS-03','식 카드와 무대 강조','Formula and stage','첫 순서의 비용은 거리 18.4와 지연 벌점 10을 더한 28.4다','The first order costs 28.4: distance 18.4 plus a penalty of 10',1),(s,k)=>{
+  const m=mapQuiet(s,k),b=k.L.bench;
+  const f=k.formula(s,b.x,b.y,b.w,['경로 비용 = 거리 + 10 × 늦은 배송 수','Route cost = distance + 10 × late stops'],'cost(r) = lib.route_length(r) + 10 * late(r)');
+  const v=k.box(s,b.x,b.y+240,b.w,200,'card');
+  k.box(v,30,25,900,50,'t-h3',['거리 18.4 · 늦은 배송 1곳','Distance 18.4 · 1 late stop']);
+  const n=k.box(v,30,100,800,80,'t-big',['0.0','0.0']);
+  const late=stopRing(k,m,4,'--c-red');k.hide([f,v,late]);
+  k.step(['차량은 1번부터 6번까지 차례로 들르고 차고지로 돌아온다. 이 순서의 이동 거리는 18.4 km다.','The van visits stops 1 to 6 in turn and returns. This order travels 18.4 km.'],()=>{k.draw(m.route,.1,1.2);k.hold(1.1);});
+  k.step(['평가기는 이동 거리에 늦은 배송 한 곳마다 10을 더한다. 거리가 같아도 늦은 곳이 많으면 비용이 커진다.','The evaluator adds 10 for every late stop. At equal distance, more late stops mean higher cost.'],()=>{k.appear(f);k.hold(1.8);});
+  k.step(['5번은 약속 시간보다 늦게 도착한다. 그래서 비용은 18.4에 10을 더한 28.4다.','Stop 5 is reached after its time window. The cost is 18.4 plus 10, which is 28.4.'],()=>{k.appear([v,late],0,{stagger:.2});k.count(n,0,28.4,.3,.9,v=>v.toFixed(1));k.hold(1.1);});
+});
+
+deck.scene('MS-04',head('MS-04','개수 줄이기와 이동','Filter and move','검사를 통과한 640개 후보 가운데 비용이 낮은 30개를 남긴다','Search keeps the 30 lowest-cost candidates among 640 valid ones',1),(s,k)=>{
+  mapQuiet(s,k);const b=k.L.bench,g=k.svg(s,b.x,b.y,b.w,b.h);
+  let seed=904;const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+  const counter=k.box(s,b.x+20,b.y+5,400,85,'t-big',['1,200','1,200']);
+  k.box(s,b.x+430,b.y+35,500,60,'t-callout',['후보 프로그램 · 예시 값','Candidate programs · illustrative']);
+  const axes=k.sv('g',{},g);k.sv('path',{d:'M 90 155 V 600 H 925',style:'fill:none;stroke:var(--fg2);stroke-width:2'},axes);
+  label(k,axes,500,665,'거리 (km)','Distance (km)');label(k,axes,100,125,'비용 ↓','Cost ↓');
+  [['15','15',95],['20','20',480],['25','25',900]].forEach(([a,c,x])=>label(k,axes,x,630,a,c,20));
+  label(k,axes,68,600,'20','20',20,'--fg2','end');label(k,axes,68,180,'60','60',20,'--fg2','end');
+  const pts=Array.from({length:1200},(_,i)=>{const x=45+rand()*900,y=125+rand()*480;const distance=15+rand()*10,cost=20+rand()*40;return {e:k.sv('circle',{cx:x,cy:y,r:2.7,style:'fill:var(--c-indigo)'},g),x,y,distance,cost};});
+  const valid=pts.slice(0,640),invalid=pts.slice(640),best=[...valid].sort((a,b)=>a.cost-b.cost).slice(0,30);
+  const selected=k.box(s,b.x+600,b.y+75,350,55,'t-h3',['상위 30개','Best 30']);selected.style.color='var(--accent)';k.hide([axes,selected]);
+  k.step(['검사기는 후보 1,200개 가운데 실행되지 않는 560개를 지운다. 남은 640개만 시뮬레이션한다.','The checker removes 560 of 1,200 candidates that do not run. Only the remaining 640 are simulated.'],()=>{k.fade(invalid.map(p=>p.e),.1,.5);k.count(counter,1200,640,.1,.8);k.hold(1.3);});
+  k.step(['평가기는 640개를 이동 거리와 비용으로 놓는다. 아래쪽에 있을수록 비용이 낮다.','The evaluator places the 640 by distance and cost. Lower points cost less.'],()=>{k.appear(axes,0,{y:0});valid.forEach(p=>k.to(p.e,{attr:{cx:90+(p.distance-15)/10*835,cy:600-(p.cost-20)/40*420},duration:.6},.2));k.hold(1.5);});
+  k.step(['탐색은 가장 아래쪽 30개만 남긴다. 다음 라운드의 편집은 이 30개에서 시작한다.','Search keeps only the lowest 30. The next round of edits starts from them.'],()=>{k.dim(valid.filter(p=>!best.includes(p)).map(p=>p.e),0,.25);k.to(best.map(p=>p.e),{fill:'var(--accent)',attr:{r:5}},.1);k.appear(selected,.3);k.hold(1.4);});
+});
+
+deck.scene('MS-05',head('MS-05','공통 부분 강조와 접기','Highlight and fold','세 프로그램의 같은 거리 계산을 라이브러리 함수 하나로 묶는다','One library function replaces the same distance calculation in three programs',3),(s,k)=>{
+  mapQuiet(s,k);const b=k.L.bench,rows=k.grid({...b,h:510},1,3,20),old=[],replacement=[],marks=[],nums=[];
+  const expr='sum(dist(a, b) for a, b in legs(r))';
+  rows.forEach((r,i)=>{k.box(s,r.x,r.y,r.w,r.h,'card');
+    k.box(s,r.x+22,r.y+12,300,32,'t-meta',[`후보 ${i+1} · 토큰 수`,`Candidate ${i+1} · tokens`]);
+    nums.push(k.box(s,r.x+820,r.y+12,130,40,'t-h3',['29','29']));
+    const c=k.codeBox(s,r.x+22,r.y+58,r.w-44,88,`score = «${expr}»\nreturn score + ${[10,14,12][i]} * late(r)`,20);old.push(c);
+    const shared=c.querySelector('.mk');Object.assign(shared.style,{background:'transparent',boxShadow:'none'});marks.push(shared);
+    const n=k.codeBox(s,r.x+22,r.y+58,r.w-44,88,`score = lib.route_length(r)\nreturn score + ${[10,14,12][i]} * late(r)`,20);replacement.push(n);});
+  const lib=k.formula(s,b.x,b.y+550,b.w,['라이브러리 · 경로의 각 구간 길이를 합한다','Library · sum the distance of every leg'],'lib.route_length(r)');k.hide([...replacement,lib]);
+  k.step(['세 후보 모두 구간 거리를 같은 식으로 더한다. 노란 표시가 그 공통 부분이다.','All three candidates sum leg distances the same way. The yellow marks show the shared part.'],()=>{k.to(marks,{backgroundColor:'var(--fill)',boxShadow:'0 0 0 2px var(--c-yellow)'},0);k.hold(1.8);});
+  k.step(['라이브러리는 이 식을 lib.route_length(r) 하나로 만든다. 세 후보의 해당 부분이 함수 호출 하나로 바뀐다.','The library turns this expression into lib.route_length(r). Each candidate now calls that one function.'],()=>{k.fold(old,lib,0,.6);k.appear(replacement,.7,{stagger:.1});k.hold(1.2);});
+  k.step(['후보 하나의 길이는 29토큰에서 15토큰으로 줄어든다. 다음 라운드부터 제안과 편집이 이 함수를 쓴다.','Each candidate shrinks from 29 to 15 tokens. From the next round, proposals and edits use this function.'],()=>{nums.forEach(n=>k.count(n,29,15,0,.7));k.mark(lib,'acc',.3);k.hold(1.5);});
+});
+
+deck.scene('MS-06',head('MS-06','교체와 계단선','Swap and step line','한 토큰씩 바꾸는 탐색은 개선된 비용만 다음 시도로 넘긴다','Single-token edits carry only improved costs into the next attempt',2),(s,k)=>{
+  const a=k.L.stage,b=k.L.bench;
+  k.box(s,a.x,a.y,a.w,540,'card');k.box(s,a.x+28,a.y+25,a.w-56,70,'t-h3',['현재 경로 평가 프로그램','Current route-scoring program']);
+  k.codeBox(s,a.x+28,a.y+130,a.w-56,200,'def cost(r):\n  d = lib.route_length(r)\n  return d + (',24);
+  const tokens=['10 * late(r))','14 * late(r))','14 * late_minutes(r))','12 * late(r))'].map(t=>k.codeBox(s,a.x+58,a.y+255,a.w-90,60,t,24));k.hide(tokens.slice(1));
+  k.box(s,a.x+28,a.y+375,a.w-56,100,'t-callout',['동일 평가기: 거리 + 10 × 지연 수\n수정 코드는 방문 순서만 제안한다','Fixed evaluator: distance + 10 × late stops\nEdited code only proposes visiting orders']).style.whiteSpace='pre-line';
+  const status=k.box(s,a.x,a.y+570,a.w,95,'card t-h3',['시작 비용 28.4','Starting cost 28.4']);status.style.padding='25px';
+  const g=k.svg(s,b.x,b.y,b.w,b.h);const X=i=>100+i*240,Y=v=>550-(v-20)*37;
+  k.sv('path',{d:'M 100 100 V 550 H 900',style:'fill:none;stroke:var(--fg2);stroke-width:2'},g);label(k,g,100,65,'최선 비용 ↓','Best cost ↓',26);label(k,g,850,625,'시도','Attempt');
+  [20,24,28].forEach(v=>label(k,g,80,Y(v)+7,String(v),String(v),22,'--fg2','end'));
+  [0,1,2,3].forEach(i=>label(k,g,X(i),590,String(i),String(i),22,'--fg2','middle'));
+  const costs=[28.4,25.6,25.6,22.1],segments=[],dots=[];
+  costs.slice(1).forEach((v,j)=>{const i=j+1;segments.push(k.sv('path',{d:`M ${X(i-1)} ${Y(costs[i-1])} H ${X(i)} V ${Y(v)}`,style:'fill:none;stroke:var(--accent);stroke-width:5'},g));dots.push(k.sv('circle',{cx:X(i),cy:Y(v),r:10,style:`fill:${i===2?'var(--bg)':'var(--c-green)'};stroke:var(${i===2?'--c-red':'--c-green'});stroke-width:4`},g));
+    label(k,g,X(i),Y(v)-28,i===2?'거절 27.2':v.toFixed(1),i===2?'Reject 27.2':v.toFixed(1),22,i===2?'--c-red':'--c-green','middle');});
+  // Attempt outcomes remain hidden until the corresponding segment is drawn.
+  const outcomes=[...g.querySelectorAll('text')].slice(-3);k.hide([...segments,...dots,...outcomes]);
+  const caps=[['편집기는 지연 가중치 10을 14로 바꾼다. 비용이 28.4에서 25.6으로 내려가서, 이 프로그램을 채택한다.','The editor changes the lateness weight from 10 to 14. Cost drops from 28.4 to 25.6, so the program is kept.'],['다음 편집은 late를 late_minutes로 바꾼다. 비용이 27.2로 올라가서 되돌리고, 최선 비용 25.6을 유지한다.','The next edit swaps late for late_minutes. Cost rises to 27.2, so it is undone and the best stays 25.6.'],['채택한 프로그램에서 14를 12로 바꾸자 비용이 22.1이 된다. 계단선은 채택된 편집에서만 내려간다.','Changing 14 to 12 in the kept program gives 22.1. The step line only drops at accepted edits.']];
+  caps.forEach((cap,i)=>k.step(cap,()=>{
+    k.fade(tokens[i],0,.2);
+    if(i===2){k.appear(tokens[1],.2,{y:0,d:.2});k.fade(tokens[1],.55,.2);}
+    const at=i===2?.75:.2;
+    k.appear(tokens[i+1],at,{y:0});
+    const changed=i===1?tokens[i+1].querySelector('.fn'):tokens[i+1].querySelector('.num');
+    k.flash(changed,at+.2);k.mark(status,i===1?'bad':'ok',at+.3);
+    k.draw(segments[i],at+.4,.6);k.appear([dots[i],outcomes[i]],at+1,{y:0});k.hold(1.2);
+  }));
+});
+
+deck.scene('MS-07',head('MS-07','타자와 검사','Type and check','제안 모델은 등록되지 않은 함수 이름을 고친 뒤 검사를 통과한다','The proposer passes the check after repairing an unknown function name',0),(s,k)=>{
+  mapQuiet(s,k);const b=k.L.bench;
+  const card=k.box(s,b.x,b.y,b.w,270,'card');k.box(card,28,25,900,45,'t-h3',['제안 모델 · 후보 프로그램','Proposer · candidate program']).style.color='var(--c-indigo)';
+  const bad=k.codeBox(card,28,110,b.w-56,100,'',24),good=k.codeBox(card,28,110,b.w-56,100,'',24);k.hide(good);
+  const checker=k.box(s,b.x,b.y+320,b.w,230,'card');k.box(checker,28,25,900,45,'t-h3',['검사기 · 함수 이름과 반환값','Checker · names and return value']).style.color='var(--c-orange)';
+  const err=k.box(checker,28,105,920,90,'t-callout',['실패 · route_len은 등록되지 않은 함수다','Fail · route_len is not a registered function']);
+  const ok=k.box(checker,28,105,920,90,'t-callout',['통과 · lib.route_length가 숫자를 반환한다','Pass · lib.route_length returns a number']);k.hide([err,ok]);
+  k.step(['제안 모델은 거리와 지연을 더하는 프로그램을 쓴다. 실행하기 전에 검사기가 이 코드를 읽는다.','The proposer writes a program adding distance and lateness. The checker reads it before anything runs.'],()=>{k.type(bad,'return route_len(r) + 10 * late(r)',0,1.3,true);k.hold(1);});
+  k.step(['검사기는 등록되지 않은 함수 route_len을 찾아 거절한다. 오류 내용은 제안 모델에게 그대로 돌려준다.','The checker finds route_len, which is not registered, and rejects it. The error message goes back to the proposer.'],()=>{k.appear(err);k.mark(checker,'bad',.2);k.hold(1.8);});
+  k.step(['제안 모델은 이름을 lib.route_length로 고쳐 다시 쓴다. 검사기는 반환값이 숫자인 것을 확인하고 통과시킨다.','The proposer fixes the name to lib.route_length. The checker confirms a numeric return and passes it.'],()=>{k.fade([bad,err],0,.2);k.appear(good,.2,{y:0});k.type(good,'return lib.route_length(r) + 10 * late(r)',.2,1.3,true);k.unmark(checker,.2);k.appear(ok,1.5);k.mark(checker,'ok',1.7);k.hold(1.2);});
+});
+
+deck.scene('MS-08',head('MS-08','분해 막대와 판정 줄','Score breakdown','다음 배송지는 합산 점수가 2번보다 4.2 낮은 3번이다','Stop 3 wins with a total score 4.2 lower than stop 2',1),(s,k)=>{
+  const m=mapQuiet(s,k),b=k.L.bench,g=k.svg(s,b.x,b.y,b.w,540),colors=['--c-blue','--c-orange','--c-yellow'];
+  [['거리','Distance'],['지연','Lateness'],['우회','Detour']].forEach((t,i)=>{k.sv('rect',{x:30+i*290,y:20,width:20,height:20,rx:4,style:`fill:var(${colors[i]})`},g);label(k,g,62+i*290,39,...t);});
+  const vals=[[5.2,6,2],[4,8,2],[4.8,4,1],[6,5,2]],bars=[];
+  vals.forEach((parts,i)=>{const y=115+i*100;label(k,g,65,y+30,`${i+1}번`,`Stop ${i+1}`,24,'--fg','end');let x=100;
+    parts.forEach((v,j)=>{const r=k.sv('rect',{x,y,width:v*43,height:52,style:`fill:var(${colors[j]})`},g);bars.push(r);label(k,g,x+v*43/2,y+33,v.toFixed(1),v.toFixed(1),21,'--fg','middle');x+=v*43;});label(k,g,x+18,y+34,parts.reduce((a,v)=>a+v,0).toFixed(1),parts.reduce((a,v)=>a+v,0).toFixed(1),25,'--fg');});
+  const decision=k.box(s,b.x,b.y+570,b.w,110,'card t-h3',['3번 9.8 < 2번 14.0\n3번이 4.2 낮아 3번으로 간다','Stop 3: 9.8 < stop 2: 14.0\nChoose stop 3, lower by 4.2']);Object.assign(decision.style,{padding:'18px 25px',whiteSpace:'pre-line'});
+  const ring=stopRing(k,m,2,'--accent');k.hide([g,decision,ring]);
+  k.step(['평가기는 다음 배송지 후보 네 곳마다 거리·지연·우회 점수를 쌓는다. 합계는 13.2, 14.0, 9.8, 13.0이다.','For each of four next stops the evaluator stacks distance, lateness and detour. The totals are 13.2, 14.0, 9.8 and 13.0.'],()=>{k.appear(g,0,{y:0});k.to(bars,{scaleX:1,transformOrigin:'left center',stagger:.05},.2);k.hold(1.6);});
+  k.step(['차량은 합계가 가장 낮은 3번으로 간다. 2번과의 차이 4.2 가운데 4.0이 지연 점수에서 나온다.','The van heads to stop 3, the lowest total. Of its 4.2 lead over stop 2, 4.0 comes from lateness.'],()=>{k.appear([decision,ring],0,{stagger:.2});k.hold(1.8);});
+});
+
+deck.scene('MS-09',head('MS-09','기준선 결과 막대','Results with references','프로그램 탐색은 두 도시에서 긴 시간 솔버의 기준 비용보다 낮다','Program search beats the long-budget solver reference in both cities',3),(s,k)=>{
+  const panels=k.grid(k.L.full,2,1,30),bars=[],refs=[],ours=[];
+  const methods=[['고정 규칙','Fixed rules'],['가까운 순서','Nearest first'],['학습 모델','Learned model'],['솔버 1×','Solver 1×'],['프로그램 탐색','Program search']];
+  panels.forEach((p,city)=>{const c=k.box(s,p.x,p.y,p.w,p.h,'card'),g=k.svg(c,0,0,p.w,p.h),values=city?[32,30.5,28.6,27.4,24.8]:[28.4,26.7,25.8,24.2,22.1],ref=city?26:23;
+    label(k,g,30,52,`도시 ${city?'B':'A'} · 비용 ↓`,`City ${city?'B':'A'} · cost ↓`,30,'--fg');label(k,g,30,93,'동일 시간 1× · 예시 값','Same budget 1× · illustrative',21);
+    const X=v=>230+v/36*480;
+    methods.forEach((t,i)=>{const y=145+i*92;label(k,g,210,y+30,...t,22,i===4?'--accent':'--fg2','end');const r=k.sv('rect',{x:230,y,width:X(values[i])-230,height:44,rx:6,style:`fill:var(${i===4?'--accent':'--card3'})`},g);bars.push(r);if(i===4)ours.push(r);label(k,g,X(values[i])+13,y+30,values[i].toFixed(1),values[i].toFixed(1),23,'--fg');});
+    refs.push(k.sv('line',{x1:X(ref),x2:X(ref),y1:125,y2:580,style:'stroke:var(--c-orange);stroke-width:3;stroke-dasharray:8 7'},g));
+    refs.push(label(k,g,30,635,`솔버 10× 시간 기준선 · ${ref.toFixed(1)}`,`Solver at 10× time · ${ref.toFixed(1)}`,24,'--c-orange'));
+  });k.hide([...bars,...refs]);
+  k.step(['같은 계산 시간에서 프로그램 탐색의 비용은 도시 A 22.1, 도시 B 24.8로 가장 낮다.','At the same compute time, program search costs 22.1 in city A and 24.8 in city B, the lowest.'],()=>{k.appear(bars,0,{stagger:.07,y:0});k.hold(1.4);});
+  k.step(['점선은 솔버에 시간을 10배 준 비용이다. 프로그램 탐색은 이 기준보다도 0.9, 1.2 낮다.','The dashed lines show the solver given 10× the time. Program search is still 0.9 and 1.2 lower.'],()=>{k.appear(refs,0,{y:0,stagger:.1});k.flash(ours,.5);k.hold(1.7);});
+});
+
+deck.start();
+</script>
+</body>
+</html>

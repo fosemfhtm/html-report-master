@@ -7,6 +7,8 @@
 //   node screenshot.mjs report.html --out shots --in-place
 // 대표색 비교: 표지만 후보 색으로 찍는다(파일은 바꾸지 않는다).
 //   node screenshot.mjs report.html --out shots --in-place --accents '#004191,#0a84ff' --widths 1440 --cover
+// 모션 발표: 스텝이 끝난 화면을 1920×1080 으로 모두 찍고 넘침·자막 겹침·작은 글자를 본다. 테마 기본은 둘 다.
+//   node screenshot.mjs deck.html --out shots --in-place --motion [--themes dark,light]
 import { spawn } from 'node:child_process';
 import { mkdtempSync, copyFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,10 +16,10 @@ import { join, resolve, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs, findChrome, resolveAccent } from './lib.mjs';
 
-const args = parseArgs(process.argv.slice(2), { 'in-place': 'bool', cover: 'bool' });
+const args = parseArgs(process.argv.slice(2), { 'in-place': 'bool', cover: 'bool', motion: 'bool' });
 const input = args._[0];
 if (!input) {
-  console.error("사용법: node screenshot.mjs <파일.html> [--out 폴더] [--widths 1440,1240,900,390] [--accents '#rrggbb,#rrggbb'] [--in-place] [--cover]");
+  console.error("사용법: node screenshot.mjs <파일.html> [--out 폴더] [--widths 1440,1240,900,390] [--accents '#rrggbb,#rrggbb'] [--in-place] [--cover] [--motion [--themes dark,light]]");
   process.exit(2);
 }
 const widths = (args.widths || '1440,1240,900,390').split(',').map(Number);
@@ -141,7 +143,66 @@ const url = pathToFileURL(target).href;
 const report = [];
 let failed = false;
 
-for (const accent of accents) {
+// --- 모션 발표: 스텝마다 촬영과 검사 ---
+const MOTION_PROBE = `(() => {
+  const stage = document.getElementById('stage'), sr = stage.getBoundingClientRect(), k = sr.width / 1920;
+  const scene = [...stage.querySelectorAll('.scene')].find(s => getComputedStyle(s).visibility === 'visible' && +getComputedStyle(s).opacity > .5);
+  const shown = el => { for (let p = el; p && p !== stage; p = p.parentElement) { const s = getComputedStyle(p); if (s.visibility === 'hidden' || s.display === 'none' || +s.opacity < .05) return false; } return el.getClientRects().length > 0; };
+  const ownText = el => [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+  const label = el => (el.textContent || el.tagName).trim().slice(0, 18);
+  const over = [], band = [], small = [], faint = [];
+  const bandTop = sr.top + 944 * k;
+  if (scene) for (const el of scene.querySelectorAll('*')) {
+    if (!shown(el)) continue;
+    const r = el.getBoundingClientRect(); if (!r.width && !r.height) continue;
+    const leaf = ownText(el) || el instanceof SVGGeometryElement || el.tagName === 'IMG';
+    if (!leaf) continue;
+    if (r.left < sr.left - 2 || r.right > sr.right + 2 || r.top < sr.top - 2 || r.bottom > sr.bottom + 2) over.push(label(el));
+    else if (r.bottom > bandTop + 2 && r.top < sr.bottom) band.push(label(el));
+    if (ownText(el)) {
+      let px = parseFloat(getComputedStyle(el).fontSize);
+      if (el instanceof SVGElement) { const m = el.getScreenCTM(); px = px * (m ? Math.hypot(m.a, m.b) : 1) / k; }
+      if (px < 16.5) small.push(label(el) + ' ' + px.toFixed(1) + 'px');
+      const c = getComputedStyle(el).color.match(/[\\d.]+/g) || [], a = c.length > 3 ? +c[3] : 1;
+      if (a < .45) faint.push(label(el) + ' α' + a.toFixed(2));
+    }
+  }
+  return { scene: scene ? scene.id : null, over: over.slice(0, 6), band: band.slice(0, 6), small: small.slice(0, 6), faint: faint.slice(0, 6), counts: [over.length, band.length, small.length, faint.length],
+    font: document.fonts.check('700 20px Pretendard') };
+})()`;
+
+if (args.motion) {
+  const themes = (args.themes || 'dark,light').split(',');
+  await page('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
+  const loaded = new Promise(ok => listeners.push(function once(m) { if (m.sessionId === sessionId && m.method === 'Page.loadEventFired') { listeners.splice(listeners.indexOf(once), 1); ok(); } }));
+  await page('Page.navigate', { url: pathToFileURL(target).href });
+  await loaded;
+  await evaluate('document.fonts.ready.then(() => new Promise(r => setTimeout(r, 400))).then(() => document.getElementById("hint")?.remove())');
+  const beats = await evaluate('window.__deck ? window.__deck.beats : null');
+  if (!beats) { console.log('window.__deck 이 없다. motion_template.html 의 엔진으로 만든 파일인지 확인한다.'); process.exit(1); }
+  let bad = 0;
+  for (const th of themes) {
+    await evaluate(`window.__deck.setTheme(${JSON.stringify(th)})`);
+    for (let i = 0; i < beats.length; i++) {
+      await evaluate(`window.__deck.seekBeat(${i}); new Promise(r => setTimeout(r, 120))`);
+      const p = await evaluate(MOTION_PROBE);
+      const file = `${basename(input, '.html')}_${th}_${String(i + 1).padStart(2, '0')}_${beats[i].scene}.png`;
+      const shot = await page('Page.captureScreenshot', { format: 'png' });
+      writeFileSync(join(outDir, file), Buffer.from(shot.data, 'base64'));
+      const lines = [];
+      if (p.counts[0]) lines.push(`무대 밖 ${p.counts[0]}곳: ${p.over.join(' / ')}`);
+      if (p.counts[1]) lines.push(`자막 띠 침범 ${p.counts[1]}곳: ${p.band.join(' / ')}`);
+      if (p.counts[2]) lines.push(`17px 미만 ${p.counts[2]}곳: ${p.small.join(' / ')}`);
+      if (p.counts[3]) lines.push(`흐린 글자 ${p.counts[3]}곳: ${p.faint.join(' / ')}`);
+      if (!p.font) lines.push('Pretendard 가 로드되지 않음');
+      if (lines.length) { bad++; report.push(`문제 ${file}` + lines.map(l => `\n    - ${l}`).join('')); }
+    }
+  }
+  report.push(`${bad ? '문제' : '통과'} 스텝 ${beats.length}개 × 테마 ${themes.length}개, 문제 화면 ${bad}장`);
+  if (bad) failed = true;
+}
+
+for (const accent of args.motion ? [] : accents) {
   for (const w of widths) {
     await page('Emulation.setDeviceMetricsOverride', { width: w, height: 900, deviceScaleFactor: 1, mobile: w < 600 });
     const loaded = new Promise(ok => listeners.push(function once(m) {
