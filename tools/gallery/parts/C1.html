@@ -97,3 +97,38 @@ render(); })();</script>
 <div class="card"><h3>산학 부서는 3위에서 1위로 오른다<span class="tag tag--mock">예시</span></h3><p class="note">동일한 100점 성과 지표로 다섯 부서를 평가한다. 연간 총예산을 100억 원에서 120억 원으로 늘린 전후의 순위다.</p><div class="plot"><svg viewBox="0 0 1000 425" role="img" aria-label="예산 증액 전후 다섯 부서의 성과 순위 슬로프 차트"><text x="240" y="32" style="fill:var(--ink-2);font-size:20px" text-anchor="middle">증액 전 · 총예산 100억 원</text><text x="710" y="32" style="fill:var(--ink-2);font-size:20px" text-anchor="middle">증액 후 · 총예산 120억 원</text><line x1="240" y1="80" x2="710" y2="80" style="stroke:var(--line)" /><text x="470" y="70" style="fill:var(--ink-3);font-size:17px" text-anchor="middle">1위</text><line x1="240" y1="155" x2="710" y2="155" style="stroke:var(--line)" /><text x="470" y="145" style="fill:var(--ink-3);font-size:17px" text-anchor="middle">2위</text><line x1="240" y1="230" x2="710" y2="230" style="stroke:var(--line)" /><text x="470" y="220" style="fill:var(--ink-3);font-size:17px" text-anchor="middle">3위</text><line x1="240" y1="305" x2="710" y2="305" style="stroke:var(--line)" /><text x="470" y="295" style="fill:var(--ink-3);font-size:17px" text-anchor="middle">4위</text><line x1="240" y1="380" x2="710" y2="380" style="stroke:var(--line)" /><text x="470" y="370" style="fill:var(--ink-3);font-size:17px" text-anchor="middle">5위</text><line x1="240" y1="80" x2="710" y2="155" style="stroke:var(--ink-3)" stroke-width="3"/><circle cx="240" cy="80" r="7" style="fill:var(--ink-3)" /><circle cx="710" cy="155" r="7" style="fill:var(--ink-3)" /><text x="220" y="86" style="fill:var(--ink-3);font-size:18px" text-anchor="end">연구 1위 · 88점</text><text x="730" y="161" style="fill:var(--ink-3);font-size:18px" >연구 2위 · 90점</text><line x1="240" y1="155" x2="710" y2="230" style="stroke:var(--ink-3)" stroke-width="3"/><circle cx="240" cy="155" r="7" style="fill:var(--ink-3)" /><circle cx="710" cy="230" r="7" style="fill:var(--ink-3)" /><text x="220" y="161" style="fill:var(--ink-3);font-size:18px" text-anchor="end">교육 2위 · 84점</text><text x="730" y="236" style="fill:var(--ink-3);font-size:18px" >교육 3위 · 88점</text><line x1="240" y1="230" x2="710" y2="80" style="stroke:var(--accent)" stroke-width="3"/><circle cx="240" cy="230" r="7" style="fill:var(--accent)" /><circle cx="710" cy="80" r="7" style="fill:var(--accent)" /><text x="220" y="236" style="fill:var(--accent);font-size:18px" text-anchor="end">산학 3위 · 80점</text><text x="730" y="86" style="fill:var(--accent);font-size:18px" >산학 1위 · 94점</text><line x1="240" y1="305" x2="710" y2="380" style="stroke:var(--ink-3)" stroke-width="3"/><circle cx="240" cy="305" r="7" style="fill:var(--ink-3)" /><circle cx="710" cy="380" r="7" style="fill:var(--ink-3)" /><text x="220" y="311" style="fill:var(--ink-3);font-size:18px" text-anchor="end">국제 4위 · 76점</text><text x="730" y="386" style="fill:var(--ink-3);font-size:18px" >국제 5위 · 79점</text><line x1="240" y1="380" x2="710" y2="305" style="stroke:var(--ink-3)" stroke-width="3"/><circle cx="240" cy="380" r="7" style="fill:var(--ink-3)" /><circle cx="710" cy="305" r="7" style="fill:var(--ink-3)" /><text x="220" y="386" style="fill:var(--ink-3);font-size:18px" text-anchor="end">행정 5위 · 72점</text><text x="730" y="311" style="fill:var(--ink-3);font-size:18px" >행정 4위 · 83점</text></svg></div><p class="note">산학은 80점에서 94점으로 14점 올라 두 계단 상승한다. 연구는 88점에서 90점으로 점수가 늘면서도 상대 순위는 한 계단 내려간다. 순위 이동은 다른 부서의 변화도 함께 반영한다.</p></div>
 
 </section>
+<section class="gx" id="C1-10" data-name="상한·기준선이 있는 계열 색 막대">
+<div class="gx-head"><span class="gx-id">C1-10</span><h2>상한·기준선이 있는 계열 색 막대</h2></div>
+<p class="gx-when">언제 쓰나: 여러 기존 방법과 제안 방법의 점수를 "아무것도 안 했을 때"와 "이상적일 때" 사이에서 읽게 할 때 쓴다. 방법이 많으면 계열 색으로 묶는다.</p>
+<style>#C1-10 .plot{overflow-x:auto} #C1-10 svg{display:block;width:100%;min-width:1000px;font-family:var(--font)} #C1-10 .tools{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px} #C1-10 .tools button{font:inherit;font-size:16px;font-weight:600;padding:7px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink-2);cursor:pointer} #C1-10 .tools button[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)} #C1-10 .legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:16px;color:var(--ink-2);margin:4px 0 6px} #C1-10 .sw{display:inline-block;width:14px;height:14px;border-radius:3px;margin-right:6px;vertical-align:-2px} #C1-10 figcaption{margin-top:8px;font-size:16px;color:var(--ink-2)} #C1-10 ul{margin:14px 0 0;padding-left:1.2em} #C1-10 li{font-size:18px;margin:4px 0}</style>
+<div class="card"><h3>15분 뒤 대기열 예측의 정확도<span class="tag tag--mock">예시</span></h3>
+<p class="note">교차로 12곳, 차로별 대기 차량 수를 예측한다. 점수는 실제 대기열과 ±2대 이내로 맞힌 비율(%)이다.</p>
+<div class="tools"><button type="button" data-h="0" aria-pressed="true">15분 뒤</button><button type="button" data-h="1" aria-pressed="false">30분 뒤</button></div>
+<div class="legend"></div>
+<div class="plot"><svg role="img" aria-label="방법별 정확도 막대와 상한, 직전 값 유지 기준선"></svg></div>
+<figcaption></figcaption>
+<ul>
+<li><b>상한</b>은 실제 도착 교통량을 입력한 같은 모델의 점수다. 미래 입력을 알아도 남는 오차가 있어서 100에 못 미친다.</li>
+<li><b>직전 값 유지</b>는 지금 대기열을 그대로 미래 답으로 낸 점수다. 예측 모델은 이 선보다 높아야 쓸모가 있다.</li>
+<li>막대와 두 선의 거리가 각각 "예측해서 얻은 점수"와 "아직 잃고 있는 점수"다.</li>
+</ul></div>
+<script>(() => { const root = document.getElementById('C1-10');
+const FAM = [['통계 모델', 'var(--ink-3)'], ['기계학습', '#c9a24f'], ['딥러닝', '#5b8db8'], ['제안 방법', 'var(--accent)']];
+const M = [['이력 평균', 0, [61, 58]], ['ARIMA', 0, [66, 57]], ['XGBoost', 1, [72, 63]], ['LSTM', 2, [75, 66]], ['GCN-LSTM', 2, [79, 70]], ['제안 모델', 3, [81, 74]]];
+const ORC = 88, CPY = [64, 52];
+root.querySelector('.legend').innerHTML = FAM.map(([n, c]) => `<span><i class="sw" style="background:${c}"></i>${n}</span>`).join('');
+const draw = h => {
+  const rows = M.map(([n, f, v]) => [n, f, v[h]]).sort((a, b) => b[2] - a[2]), X = v => 200 + v / 100 * 700, T0 = 50, BH = 40, H = T0 + rows.length * BH + 40;
+  let s = '';
+  for (let t = 0; t <= 100; t += 20) s += `<line x1="${X(t)}" x2="${X(t)}" y1="${T0 - 6}" y2="${T0 + rows.length * BH}" style="stroke:var(--line)"/><text x="${X(t)}" y="${H - 14}" text-anchor="middle" style="font-size:14px;fill:var(--ink-3)">${t}</text>`;
+  rows.forEach(([n, f, v], i) => { const y = T0 + i * BH, me = f === 3;
+    s += `<text x="188" y="${y + 26}" text-anchor="end" style="font-size:17px;fill:var(${me ? '--accent' : '--ink-2'});font-weight:${me ? 800 : 500}">${n}</text><rect x="${X(0)}" y="${y + 7}" width="${X(v) - X(0)}" height="${BH - 14}" rx="4" style="fill:${FAM[f][1]}"/><text x="${X(v) + 8}" y="${y + 26}" style="font-size:16px;font-weight:700;fill:var(--ink)">${v}</text>`; });
+  const c = CPY[h];
+  s += `<line x1="${X(ORC)}" x2="${X(ORC)}" y1="${T0 - 34}" y2="${T0 + rows.length * BH}" style="stroke:var(--ink);stroke-width:2;stroke-dasharray:6 4"/><text x="${X(ORC) + 6}" y="${T0 - 20}" style="font-size:16px;font-weight:700;fill:var(--ink)">상한 ${ORC}</text>`;
+  s += `<line x1="${X(c)}" x2="${X(c)}" y1="${T0 - 16}" y2="${T0 + rows.length * BH}" style="stroke:var(--warn);stroke-width:2;stroke-dasharray:6 4"/><text x="${X(c) - 6}" y="${T0 - 2}" text-anchor="end" style="font-size:16px;font-weight:700;fill:var(--warn)">직전 값 유지 ${c}</text>`;
+  const svg = root.querySelector('svg'); svg.setAttribute('viewBox', `0 0 1000 ${H}`); svg.innerHTML = s;
+  root.querySelector('figcaption').textContent = h ? '30분 뒤에는 모든 방법의 점수가 내려가고, 직전 값 유지 기준선은 52까지 떨어진다.' : '15분 뒤에는 제안 모델이 상한보다 7점 낮다.';
+};
+root.querySelectorAll('.tools button').forEach(b => b.addEventListener('click', () => { root.querySelectorAll('.tools button').forEach(x => x.setAttribute('aria-pressed', x === b)); draw(+b.dataset.h); }));
+draw(0); })();</script>
+</section>

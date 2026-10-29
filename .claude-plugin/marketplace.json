@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "html-report-master",
-  "description": "Korean HTML research reports that explain a paper or project well enough that readers no longer need the source: real diagrams, worked examples, interactive models, a 72-part gallery, offline single-file output.",
+  "description": "Korean HTML research reports that explain a paper or project well enough that readers no longer need the source: real diagrams, worked examples, interactive models, a 74-part gallery, offline single-file output.",
   "owner": {
     "name": "fosemfhtm",
     "url": "https://github.com/fosemfhtm"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "html-report-master",
-      "description": "Korean HTML research reports that explain a paper or project well enough that readers no longer need the source: real diagrams, worked examples, interactive models, a 72-part gallery, offline single-file output.",
+      "description": "Korean HTML research reports that explain a paper or project well enough that readers no longer need the source: real diagrams, worked examples, interactive models, a 74-part gallery, offline single-file output.",
       "source": "./",
       "category": "productivity"
     }

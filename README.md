@@ -42,7 +42,7 @@
 - **하나의 예로 끝까지.** 작은 예 하나를 정해 개념, 식, 계산, 결과를 그 위에서 설명한다. 핵심 식은 그 예의 숫자로 한 번 계산해 보인다.
 - **만져 보는 모형.** 값을 바꾸면 결과가 눈에 띄게 달라지는 계산은 슬라이더와 단계 탭으로 직접 움직여 보게 만든다.
 - **말하듯 쓰는 글.** 방어 문구, 메타 서술, 명세서식 나열, 작업 이력을 쓰지 않고, 동료에게 설명하듯 "~한다" 평서문으로 쓴다.
-- **부품 갤러리 72개.** 큰 구조, 실물 도식, 작동 모형, 차트, 글 부품을 골라 쓴다. 주제는 모두 설명용 예시다.
+- **부품 갤러리 74개.** 큰 구조, 실물 도식, 작동 모형, 차트, 글 부품을 골라 쓴다. 주제는 모두 설명용 예시다.
 - **한 파일 배포.** 글꼴·그림·상호작용을 모두 넣어 인터넷 없이 열리는 HTML 하나로 묶는다.
 
 | | |
@@ -88,7 +88,7 @@ skills/html-report-master/
   references/style.md         지적받은 문장과 고친 문장 사례
   references/narrative.md     장 구성, 글의 층, 이전에 실패한 이유
   references/design.md        색·글자·배치·부품
-  references/gallery.md       부품 72개 목록과 언제 쓰는지
+  references/gallery.md       부품 74개 목록과 언제 쓰는지
   assets/report_template.html 디자인 토큰과 페이지 뼈대
   assets/gallery.html         부품 갤러리 (브라우저로 열어 본다)
   assets/fonts/               Pretendard 가변 글꼴과 라이선스
@@ -110,4 +110,4 @@ tools/gallery/                갤러리 부품 원본과 조립 스크립트
 
 ---
 
-**English summary.** An agent skill for Korean HTML research reports that explain a paper or project well enough that readers no longer need the source. It steers models away from fake box-and-arrow diagrams and spec-sheet prose toward real diagrams, one running example with worked numbers, interactive models where they help, and plain spoken Korean. Ships with a 72-part component gallery, a design-token template, and Node scripts for screenshots and single-file offline builds. Install with `npx skills add fosemfhtm/html-report-master`.
+**English summary.** An agent skill for Korean HTML research reports that explain a paper or project well enough that readers no longer need the source. It steers models away from fake box-and-arrow diagrams and spec-sheet prose toward real diagrams, one running example with worked numbers, interactive models where they help, and plain spoken Korean. Ships with a 74-part component gallery, a design-token template, and Node scripts for screenshots and single-file offline builds. Install with `npx skills add fosemfhtm/html-report-master`.
