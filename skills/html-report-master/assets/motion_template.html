@@ -80,7 +80,10 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); overfl
 .code .fn { color: var(--accent); }
 .code .cm { color: var(--code-cm); font-style: italic; }
 .code .pun { color: var(--code-pun); }
-.code .mk { border-radius: 5px; background: color-mix(in srgb, var(--c-yellow) 18%, transparent); box-shadow: 0 0 0 2px var(--c-yellow); }
+.code .mk { border-radius: 4px; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+/* 스포트라이트: 짚는 요소 뒤에 옅은 대표색 면, 밑줄은 대표색 선 */
+.spot { position: absolute; inset: 0; border-radius: inherit; background: color-mix(in srgb, var(--accent) 16%, transparent); pointer-events: none; opacity: 0; }
+.uline { position: absolute; left: 0; bottom: -6px; height: 4px; width: 100%; border-radius: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left center; pointer-events: none; }
 
 /* 식 카드: 위는 말 풀이, 아래는 코드. 코드도 읽히는 크기와 대비로 둔다 */
 .formula { padding: 26px 30px; }
@@ -199,9 +202,10 @@ const deck = (() => {
     if (src) { const k = el('div', 'code', c); k.innerHTML = code(src); }
     return c;
   }
-  /** 상태 테두리를 단다. state: 'hi'(노랑) | 'ok'(초록) | 'bad'(빨강) | 'acc'(대표색) */
+  /** 통과·실패 테두리. state: 'ok'(초록) | 'bad'(빨강) */
   function ring(target) { let r = target.querySelector(':scope > .ring'); if (!r) { r = el('div', 'ring', target); if (getComputedStyle(target).position === 'static') target.style.position = 'relative'; } return r; }
-  const STATE = { hi: 'var(--c-yellow)', ok: 'var(--c-green)', bad: 'var(--c-red)', acc: 'var(--accent)' };
+  const STATE = { ok: 'var(--c-green)', bad: 'var(--c-red)' };
+  function child(target, cls) { let r = target.querySelector(`:scope > .${cls}`); if (!r) { r = el('div', cls, target); if (getComputedStyle(target).position === 'static') target.style.position = 'relative'; } return r; }
 
   /* ---------- 장면과 스텝 ---------- */
   /**
@@ -240,8 +244,14 @@ const deck = (() => {
       type(node, text, at = 0, d = 1.2, isCode = false) { need(); const o = { n: 0 }; node.textContent = ''; cur.to(o, { n: text.length, duration: d, ease: 'none', onUpdate: () => { const t = text.slice(0, Math.round(o.n)); if (isCode && o.n >= text.length) node.innerHTML = code(t); else node.textContent = t; } }, at); },
       /** 선 그리기: SVG path/line/polyline 을 따라 그린다 */
       draw(paths, at = 0, d = .8) { need(); arr(paths).forEach(p => { const len = p.getTotalLength(); gsap.set(p, { strokeDasharray: len, strokeDashoffset: len }); cur.set(p, { autoAlpha: 1 }, at); cur.to(p, { strokeDashoffset: 0, duration: d, ease: 'power1.inOut' }, at); }); },
-      /** 상태 테두리: 강조(hi)·채택(ok)·실패(bad) */
-      mark(target, state = 'hi', at = 0) { need(); const r = ring(target); cur.to(r, { borderColor: STATE[state], duration: .25 }, at); },
+      /** 스포트라이트: target 은 옅은 대표색 면으로 짚고, others 는 어둡게 둔다. SVG 요소는 어둡게만 한다 */
+      focus(target, others = [], at = 0) { need(); arr(target).forEach(t => { if (!(t instanceof SVGElement)) cur.to(child(t, 'spot'), { opacity: 1, duration: .35 }, at); }); if (arr(others).length) cur.to(arr(others), { opacity: .3, duration: .35 }, at); },
+      /** 스포트라이트 해제 */
+      unfocus(target, others = [], at = 0) { need(); arr(target).forEach(t => { if (!(t instanceof SVGElement)) cur.to(child(t, 'spot'), { opacity: 0, duration: .3 }, at); }); if (arr(others).length) cur.to(arr(others), { opacity: 1, duration: .3 }, at); },
+      /** 밑줄 긋기: 글자 요소 아래에 대표색 선을 왼쪽부터 긋는다 */
+      underline(target, at = 0, d = .45) { need(); arr(target).forEach(t => cur.to(child(t, 'uline'), { scaleX: 1, duration: d, ease: 'power2.out' }, at)); },
+      /** 통과(ok)·실패(bad) 테두리 */
+      mark(target, state = 'ok', at = 0) { need(); if (!STATE[state]) throw new Error(`mark 상태는 ok 또는 bad: ${state}. 짚을 때는 focus 를 쓴다`); cur.to(ring(target), { borderColor: STATE[state], duration: .25 }, at); },
       unmark(target, at = 0) { need(); cur.to(ring(target), { borderColor: 'transparent', duration: .25 }, at); },
       /** 깜빡임: 바뀐 곳을 짚는다 */
       flash(target, at = 0) { need(); cur.fromTo(target, { filter: 'brightness(2.2)' }, { filter: 'brightness(1)', duration: .6, ease: 'power2.out' }, at); },
@@ -269,8 +279,9 @@ const deck = (() => {
       tl.add(st, t);
       if (st.caption) {
         const c = el('div', 'cap', capsEl, tx(st.caption));
-        tl.to(c, { autoAlpha: 1, duration: .3 }, t);
-        tl.to(c, { autoAlpha: 0, duration: .25 }, t + len + (i === sc.steps.length - 1 ? .45 : .05));
+        // 앞 자막이 다 사라진 뒤 다음 자막이 나온다. 두 자막이 겹쳐 보이지 않게
+        tl.to(c, { autoAlpha: 1, duration: .25 }, t + (i ? .15 : 0));
+        tl.to(c, { autoAlpha: 0, duration: .15 }, t + len + (i === sc.steps.length - 1 ? .45 : 0));
       }
       t += len;
       beats.push({ t, scene: scenes.length - 1, step: i });
@@ -354,7 +365,7 @@ const deck = (() => {
     seek(k >= 0 ? scenes[k].start : 0);
     next();
     // 검사 스크립트가 쓰는 창구
-    window.__deck = { beats: beats.map(b => ({ scene: scenes[b.scene].id, step: b.step, t: b.t })), seekBeat: i => seek(beats[i].t), setTheme, setLang };
+    window.__deck = { beats: beats.map(b => ({ scene: scenes[b.scene].id, step: b.step, t: b.t })), seekBeat: i => seek(beats[i].t), seekTime: seek, sceneStart: id => scenes.find(s => s.id === id).start, duration: () => tl.duration(), setTheme, setLang };
   }
   return { config: o => Object.assign(cfg, o), scene, start, L, grid, tx, code };
 })();
@@ -362,53 +373,80 @@ const deck = (() => {
 
 <script>
 /* ======================= 장면 (이 부분만 자료에 맞게 바꾼다) =======================
-   예시 주제: 배송 경로 탐색. 무대(왼쪽)에는 늘 같은 배송 지도, 작업대(오른쪽)에는 그 장면의 설명. */
+   예시 주제: 점심시간 카페의 대기 줄. 무대(왼쪽)에는 늘 같은 카페 줄, 작업대(오른쪽)에는 그 장면의 설명. */
 deck.config({ langs: ['ko', 'en'] });   // 한 언어만 쓰면 ['ko'] 로 두고 글을 문자열로 쓴다
 
-// 늘 같은 자리의 기준 예제: 차고지 하나와 배송지 여섯 곳
-const STOPS = [[120, 120], [470, 90], [520, 330], [300, 420], [90, 560], [430, 600]], DEPOT = [300, 260];
-function deliveryMap(s, k) {
-  const g = k.svg(s, k.L.stage.x, k.L.stage.y, 640, 700);
-  for (let i = 0; i <= 6; i++) { k.sv('line', { x1: 0, y1: i * 110 + 20, x2: 620, y2: i * 110 + 20, style: 'stroke:var(--card2);stroke-width:14' }, g); k.sv('line', { x1: i * 100 + 10, y1: 0, x2: i * 100 + 10, y2: 690, style: 'stroke:var(--card2);stroke-width:14' }, g); }
-  const route = k.sv('polyline', { points: [DEPOT, ...STOPS, DEPOT].map(p => p.join(',')).join(' '), style: 'fill:none;stroke:var(--accent);stroke-width:6;stroke-linejoin:round' }, g);
-  k.sv('rect', { x: DEPOT[0] - 22, y: DEPOT[1] - 22, width: 44, height: 44, rx: 8, style: 'fill:var(--c-orange)' }, g);
-  const dots = STOPS.map(([x, y], i) => { k.sv('circle', { cx: x, cy: y, r: 18, style: 'fill:var(--card3)' }, g); return k.sv('text', { x, y: y + 7, 'text-anchor': 'middle', style: 'font:700 20px var(--font);fill:var(--fg)' }, g, String(i + 1)); });
-  return { g, route, dots };
+// 사람 모양: 원 머리 + 둥근 몸, 발 위치가 (x, y). g 는 나타나기, m 은 배경 움직임, lit 은 세어 짚을 때 쓴다
+function person(k, parent, x, y, sc, fill) {
+  const o = k.sv('g', { transform: `translate(${x} ${y})` }, parent), m = k.sv('g', {}, o), g = k.sv('g', {}, m);
+  const shape = (p, f) => { k.sv('circle', { cx: 0, cy: -38 * sc, r: 11 * sc, style: `fill:${f}` }, p); k.sv('rect', { x: -18 * sc, y: -26 * sc, width: 36 * sc, height: 26 * sc, rx: 13 * sc, style: `fill:${f}` }, p); };
+  shape(g, fill);
+  const lit = k.sv('g', { style: 'opacity:0' }, g); shape(lit, 'var(--accent)');
+  return { m, g, lit };
+}
+// 컵: 바닥 가운데가 (x, y)
+function cup(k, parent, x, y, sc, fill) {
+  const g = k.sv('g', {}, parent);
+  k.sv('path', { d: `M${x - 16 * sc} ${y - 34 * sc} H${x + 16 * sc} L${x + 11 * sc} ${y} H${x - 11 * sc} Z`, style: `fill:${fill}` }, g);
+  k.sv('rect', { x: x - 19 * sc, y: y - 42 * sc, width: 38 * sc, height: 8 * sc, rx: 4 * sc, style: `fill:${fill}` }, g);
+  return g;
+}
+// 늘 같은 자리의 기준 예제: 카운터 하나, 바리스타 둘, 굽이굽이 선 손님 22명. o.x, o.y, o.scale 로 작게 놓을 수 있다
+function cafeStage(s, k, o = {}) {
+  const at = k.L.stage, sc = o.scale ?? 1;
+  const g = k.svg(s, o.x ?? at.x, o.y ?? at.y, 640, 700);
+  if (sc !== 1) Object.assign(g.style, { transformOrigin: '0 0', transform: `scale(${sc})` });
+  const lane = 'M130 270 H510 A65 65 0 0 1 510 400 H130 A65 65 0 0 0 130 530 H510';
+  k.sv('path', { d: lane, style: 'fill:none;stroke:var(--card2);stroke-width:70;stroke-linecap:round;stroke-linejoin:round' }, g);
+  const road = k.sv('path', { d: lane, style: 'fill:none;stroke:none' }, g);
+  const pts = Array.from({ length: 22 }, (_, i) => road.getPointAtLength(30 + i * 70));
+  k.sv('text', { x: 320, y: 58, 'text-anchor': 'middle', style: 'font:600 24px var(--font);fill:var(--fg2)' }, g, ['바리스타 2명', '2 baristas']);
+  const baristas = [190, 450].map(x => person(k, g, x, 150, 1.5, 'var(--c-indigo)').g);
+  const counter = k.sv('rect', { x: 40, y: 122, width: 560, height: 70, rx: 18, style: 'fill:var(--card3)' }, g);
+  k.sv('text', { x: 320, y: 168, 'text-anchor': 'middle', style: 'font:600 24px var(--font);fill:var(--fg)' }, g, ['카운터', 'Counter']);
+  cup(k, g, 90, 122, .9, 'var(--fg2)'); cup(k, g, 550, 122, .9, 'var(--fg2)');
+  const people = pts.map(p => person(k, g, p.x, p.y + 26, 1, 'var(--c-gray)'));
+  // 잔잔한 배경 움직임: 손님이 한 걸음 앞으로 나섰다가 제자리로 돌아온다
+  const dx = pts.map((p, i) => ((i ? pts[i - 1].x : p.x) - p.x) * .45), dy = pts.map((p, i) => ((i ? pts[i - 1].y : p.y - 70) - p.y) * .45), ms = people.map(p => p.m);
+  k.ambient(a => { a.to(ms, { x: i => dx[i], y: i => dy[i], duration: .9, ease: 'sine.inOut', stagger: .05 }, 0).to(ms, { x: 0, y: 0, duration: .9, ease: 'sine.inOut', stagger: .05 }, '+=.6'); });
+  return { g, customers: people.map(p => p.g), lit: people.map(p => p.lit), baristas, counter, pts };
 }
 
 deck.scene('title', {}, (s, k) => {
-  k.box(s, 0, 360, 1920, null, '', `<div style="text-align:center;font:800 120px/1 var(--font);letter-spacing:-.04em">배송 경로 <span style="color:var(--accent)">탐색</span></div>`);
-  k.box(s, 0, 530, 1920, null, '', `<div style="text-align:center;font:400 34px/1.4 var(--font);color:var(--fg2)">${k.tx(['짧은 프로그램으로 배송 순서를 정한다', 'Choosing delivery order with a short program'])}</div>`);
-  k.box(s, 0, 640, 1920, null, '', `<div style="text-align:center;font:500 24px var(--mono);color:var(--fg3)">route = argmin(orders(), cost)</div>`);
+  k.box(s, 110, 340, 1050, null, '', [`<div style="font:800 104px/1.12 var(--font);letter-spacing:-.04em">점심 대기 11분을<br><span style="color:var(--accent)">4.5분</span>으로</div>`, `<div style="font:800 104px/1.12 var(--font);letter-spacing:-.04em">Cutting the lunch wait<br>from 11 to <span style="color:var(--accent)">4.5 min</span></div>`]);
+  k.box(s, 110, 620, 1000, null, '', [`<div style="font:400 34px/1.4 var(--font);color:var(--fg2)">예약 주문과 키오스크로 카페 줄을 줄이는 방법</div>`, `<div style="font:400 34px/1.4 var(--font);color:var(--fg2)">How pre-orders and kiosks shorten the café queue</div>`]);
+  cafeStage(s, k, { x: 1160, y: 220, scale: .85 });   // 줄이 잔잔하게 움직인다
 });
 
-deck.scene('cost', { eyebrow: ['경로 비용', 'Route cost'], title: ['경로 비용은 이동 거리와 늦은 배송의 벌점을 더한 값이다', 'Route cost adds travel distance and a lateness penalty'], nav: { items: [['비용', 'Cost'], ['탐색', 'Search'], ['결과', 'Result']], on: 0 } }, (s, k) => {
-  const m = deliveryMap(s, k); k.hide(m.route);
-  const f = k.formula(s, k.L.bench.x, k.L.bench.y, k.L.bench.w, ['경로 비용 = 이동 거리 + 10 × 늦은 배송 수', 'cost = distance + 10 × late stops'], 'cost(r) = sum(dist(a, b) for a, b in legs(r)) + 10 * late(r)');
-  const val = k.box(s, k.L.bench.x, k.L.bench.y + 220, 600, null, '', `<div class="t-meta">${k.tx(['이 순서의 비용', 'Cost of this order'])}</div><div class="t-big">0</div>`);
-  const num = val.querySelector('.t-big');
+deck.scene('formula', { eyebrow: ['대기 시간 식', 'Wait-time formula'], title: ['평균 대기 시간은 줄 선 사람 수를 도착률로 나눈 값이다', 'The average wait is the number of people in line divided by the arrival rate'], nav: { items: [['문제', 'Problem'], ['방법', 'Method'], ['결과', 'Result']], on: 1 } }, (s, k) => {
+  const cafe = cafeStage(s, k); k.hide(cafe.customers);
+  const f = k.formula(s, k.L.bench.x, k.L.bench.y + 16, k.L.bench.w, ['평균 대기 시간 = 줄 선 사람 ÷ 도착률', 'Average wait = people in line ÷ arrival rate'], 'W = L / λ');
+  f.querySelector('.code').style.fontSize = '34px';
+  const val = k.box(s, k.L.bench.x, k.L.bench.y + 220, k.L.bench.w, null, 'card', `<div style="display:flex;align-items:baseline;justify-content:center;gap:28px;padding:36px 0;font:800 110px/1 var(--font);font-variant-numeric:tabular-nums"><span class="n">0</span><span style="color:var(--fg3);font-size:72px">÷</span><span>2</span><span style="color:var(--fg3);font-size:72px">=</span><span class="w">0</span><span style="font-size:52px">${deck.tx(['분', ' min'])}</span></div>`);
   k.hide([f, val]);
-  k.step(['차고지에서 출발해 배송지 여섯 곳을 돌고 돌아온다.', 'The van leaves the depot, visits six stops and returns.'], () => { k.draw(m.route, .2, 1.4); });
-  k.step(['이 순서의 이동 거리는 18.4 km이고 늦은 배송이 한 곳이라, 비용은 28.4다.', 'This order covers 18.4 km with one late stop, so its cost is 28.4.'], () => { k.appear(f); k.appear(val, .3); k.count(num, 0, 28.4, .4, .9, v => v.toFixed(1)); });
+  k.step(['점심시간 손님이 하나씩 카운터 앞 줄에 서서 22명이 된다.', 'Lunch guests join the line one by one until 22 people are waiting.'], () => { k.appear(cafe.customers, 0, { stagger: .08 }); });
+  k.step(['줄 선 사람 22명을 분당 도착 2명으로 나누면 평균 대기 시간 W는 11분이다.', 'Dividing the 22 people in line by 2 arrivals per minute gives an average wait W of 11 minutes.'], () => {
+    k.appear(f); k.appear(val, .3); k.count(val.querySelector('.n'), 0, 22, .5, .9); k.count(val.querySelector('.w'), 0, 11, 1.2, .9);
+  });
 });
 
-deck.scene('result', { eyebrow: ['결과', 'Result'], title: ['탐색한 순서는 사람이 정한 순서보다 비용이 22% 낮다', 'The searched order costs 22% less than the hand-made one'], nav: { items: [['비용', 'Cost'], ['탐색', 'Search'], ['결과', 'Result']], on: 2 } }, (s, k) => {
-  const rows = [['탐색한 순서', 'Searched', 22.1, true], ['가까운 곳부터', 'Nearest first', 26.7], ['사람이 정한 순서', 'Hand-made', 28.4]];
-  const X = v => 360 + v / 40 * 1100;
+deck.scene('result', { eyebrow: ['결과', 'Result'], title: ['예약 주문과 키오스크만 대기 시간을 목표 5분 안으로 줄인다', 'Only pre-order + kiosk brings the wait inside the 5-minute target'], nav: { items: [['문제', 'Problem'], ['방법', 'Method'], ['결과', 'Result']], on: 2 } }, (s, k) => {
+  const rows = [['예약 주문 + 키오스크', 'Pre-order + kiosk', 4.5, true], ['바리스타 추가', 'Add a barista', 10], ['현재', 'Today', 11]];
+  const X = v => 400 + v / 12 * 1000;
   const c = k.box(s, 110, 240, 1700, 600, 'card');
   const g = k.svg(c, 0, 0, 1700, 600);
   const bars = rows.map(([ko, en, v, me], i) => {
     const y = 90 + i * 130;
-    k.sv('text', { x: 320, y: y + 40, 'text-anchor': 'end', style: `font:${me ? 700 : 500} 26px var(--font);fill:${me ? 'var(--accent)' : 'var(--fg2)'}` }, g, [ko, en]);
-    const r = k.sv('rect', { x: 360, y, width: X(v) - 360, height: 56, rx: 8, style: `fill:${me ? 'var(--accent)' : 'var(--card3)'}` }, g);
-    k.sv('text', { x: X(v) + 14, y: y + 40, style: 'font:700 26px var(--font);fill:var(--fg)' }, g, v.toFixed(1));
-    return r;
-  });
-  const ref = k.sv('line', { x1: X(25), x2: X(25), y1: 60, y2: 480, style: 'stroke:var(--fg3);stroke-width:2;stroke-dasharray:8 6' }, g);
-  const refT = k.sv('text', { x: X(25) + 10, y: 530, style: 'font:500 21px var(--font);fill:var(--fg2)' }, g, ['목표 25.0', 'Target 25.0']);
+    k.sv('text', { x: 360, y: y + 40, 'text-anchor': 'end', style: `font:${me ? 700 : 500} 26px var(--font);fill:${me ? 'var(--accent)' : 'var(--fg2)'}` }, g, [ko, en]);
+    const r = k.sv('rect', { x: 400, y, width: X(v) - 400, height: 56, rx: 8, style: `fill:${me ? 'var(--accent)' : 'var(--c-gray)'}` }, g);
+    const t = k.sv('text', { x: Math.max(X(v), X(5)) + 14, y: y + 40, style: 'font:700 26px var(--font);fill:var(--fg)' }, g, [v.toFixed(1) + '분', v.toFixed(1) + ' min']);
+    return [r, t];
+  }).flat();
+  const ref = k.sv('line', { x1: X(5), x2: X(5), y1: 60, y2: 480, style: 'stroke:var(--fg3);stroke-width:2;stroke-dasharray:8 6' }, g);
+  const refT = k.sv('text', { x: X(5) + 10, y: 530, style: 'font:500 21px var(--font);fill:var(--fg2)' }, g, ['목표 5분', 'Target 5 min']);
   k.hide([...bars, ref, refT]);
-  k.step(['같은 배송지 여섯 곳에서 세 순서의 비용을 비교한다.', 'Three orders are compared on the same six stops.'], () => { k.appear(bars, 0, { stagger: .12, y: 0 }); });
-  k.step(['탐색한 순서만 목표 25.0보다 낮다.', 'Only the searched order is below the 25.0 target.'], () => { k.appear([ref, refT]); });
+  k.step(['같은 점심시간에 세 방법의 평균 대기 시간이 현재 11.0분, 바리스타 추가 10.0분, 예약 주문 + 키오스크 4.5분이다.', 'In the same lunch hour the average wait is 11.0 min today, 10.0 with an extra barista and 4.5 with pre-order + kiosk.'], () => { k.appear(bars, 0, { stagger: .06, y: 0 }); });
+  k.step(['예약 주문 + 키오스크 막대만 목표 5분 선 안쪽에 있다.', 'Only the pre-order + kiosk bar stays inside the 5-minute line.'], () => { k.appear([ref, refT]); });
 });
 
 deck.start();

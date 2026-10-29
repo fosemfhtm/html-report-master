@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>모션 부품 갤러리</title>
+<title>모션 장면 갤러리</title>
 <!-- 작업 중에는 fonts/, vendor/ 를 상대 경로로 둔다. 배포본은 scripts/build_single_file.mjs 로 한 파일로 만든다. -->
 <style>
 @font-face { font-family: "Pretendard"; src: url("fonts/PretendardVariable.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
@@ -80,7 +80,10 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); overfl
 .code .fn { color: var(--accent); }
 .code .cm { color: var(--code-cm); font-style: italic; }
 .code .pun { color: var(--code-pun); }
-.code .mk { border-radius: 5px; background: color-mix(in srgb, var(--c-yellow) 18%, transparent); box-shadow: 0 0 0 2px var(--c-yellow); }
+.code .mk { border-radius: 4px; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+/* 스포트라이트: 짚는 요소 뒤에 옅은 대표색 면, 밑줄은 대표색 선 */
+.spot { position: absolute; inset: 0; border-radius: inherit; background: color-mix(in srgb, var(--accent) 16%, transparent); pointer-events: none; opacity: 0; }
+.uline { position: absolute; left: 0; bottom: -6px; height: 4px; width: 100%; border-radius: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left center; pointer-events: none; }
 
 /* 식 카드: 위는 말 풀이, 아래는 코드. 코드도 읽히는 크기와 대비로 둔다 */
 .formula { padding: 26px 30px; }
@@ -199,9 +202,10 @@ const deck = (() => {
     if (src) { const k = el('div', 'code', c); k.innerHTML = code(src); }
     return c;
   }
-  /** 상태 테두리를 단다. state: 'hi'(노랑) | 'ok'(초록) | 'bad'(빨강) | 'acc'(대표색) */
+  /** 통과·실패 테두리. state: 'ok'(초록) | 'bad'(빨강) */
   function ring(target) { let r = target.querySelector(':scope > .ring'); if (!r) { r = el('div', 'ring', target); if (getComputedStyle(target).position === 'static') target.style.position = 'relative'; } return r; }
-  const STATE = { hi: 'var(--c-yellow)', ok: 'var(--c-green)', bad: 'var(--c-red)', acc: 'var(--accent)' };
+  const STATE = { ok: 'var(--c-green)', bad: 'var(--c-red)' };
+  function child(target, cls) { let r = target.querySelector(`:scope > .${cls}`); if (!r) { r = el('div', cls, target); if (getComputedStyle(target).position === 'static') target.style.position = 'relative'; } return r; }
 
   /* ---------- 장면과 스텝 ---------- */
   /**
@@ -240,8 +244,14 @@ const deck = (() => {
       type(node, text, at = 0, d = 1.2, isCode = false) { need(); const o = { n: 0 }; node.textContent = ''; cur.to(o, { n: text.length, duration: d, ease: 'none', onUpdate: () => { const t = text.slice(0, Math.round(o.n)); if (isCode && o.n >= text.length) node.innerHTML = code(t); else node.textContent = t; } }, at); },
       /** 선 그리기: SVG path/line/polyline 을 따라 그린다 */
       draw(paths, at = 0, d = .8) { need(); arr(paths).forEach(p => { const len = p.getTotalLength(); gsap.set(p, { strokeDasharray: len, strokeDashoffset: len }); cur.set(p, { autoAlpha: 1 }, at); cur.to(p, { strokeDashoffset: 0, duration: d, ease: 'power1.inOut' }, at); }); },
-      /** 상태 테두리: 강조(hi)·채택(ok)·실패(bad) */
-      mark(target, state = 'hi', at = 0) { need(); const r = ring(target); cur.to(r, { borderColor: STATE[state], duration: .25 }, at); },
+      /** 스포트라이트: target 은 옅은 대표색 면으로 짚고, others 는 어둡게 둔다. SVG 요소는 어둡게만 한다 */
+      focus(target, others = [], at = 0) { need(); arr(target).forEach(t => { if (!(t instanceof SVGElement)) cur.to(child(t, 'spot'), { opacity: 1, duration: .35 }, at); }); if (arr(others).length) cur.to(arr(others), { opacity: .3, duration: .35 }, at); },
+      /** 스포트라이트 해제 */
+      unfocus(target, others = [], at = 0) { need(); arr(target).forEach(t => { if (!(t instanceof SVGElement)) cur.to(child(t, 'spot'), { opacity: 0, duration: .3 }, at); }); if (arr(others).length) cur.to(arr(others), { opacity: 1, duration: .3 }, at); },
+      /** 밑줄 긋기: 글자 요소 아래에 대표색 선을 왼쪽부터 긋는다 */
+      underline(target, at = 0, d = .45) { need(); arr(target).forEach(t => cur.to(child(t, 'uline'), { scaleX: 1, duration: d, ease: 'power2.out' }, at)); },
+      /** 통과(ok)·실패(bad) 테두리 */
+      mark(target, state = 'ok', at = 0) { need(); if (!STATE[state]) throw new Error(`mark 상태는 ok 또는 bad: ${state}. 짚을 때는 focus 를 쓴다`); cur.to(ring(target), { borderColor: STATE[state], duration: .25 }, at); },
       unmark(target, at = 0) { need(); cur.to(ring(target), { borderColor: 'transparent', duration: .25 }, at); },
       /** 깜빡임: 바뀐 곳을 짚는다 */
       flash(target, at = 0) { need(); cur.fromTo(target, { filter: 'brightness(2.2)' }, { filter: 'brightness(1)', duration: .6, ease: 'power2.out' }, at); },
@@ -269,8 +279,9 @@ const deck = (() => {
       tl.add(st, t);
       if (st.caption) {
         const c = el('div', 'cap', capsEl, tx(st.caption));
-        tl.to(c, { autoAlpha: 1, duration: .3 }, t);
-        tl.to(c, { autoAlpha: 0, duration: .25 }, t + len + (i === sc.steps.length - 1 ? .45 : .05));
+        // 앞 자막이 다 사라진 뒤 다음 자막이 나온다. 두 자막이 겹쳐 보이지 않게
+        tl.to(c, { autoAlpha: 1, duration: .25 }, t + (i ? .15 : 0));
+        tl.to(c, { autoAlpha: 0, duration: .15 }, t + len + (i === sc.steps.length - 1 ? .45 : 0));
       }
       t += len;
       beats.push({ t, scene: scenes.length - 1, step: i });
@@ -354,176 +365,388 @@ const deck = (() => {
     seek(k >= 0 ? scenes[k].start : 0);
     next();
     // 검사 스크립트가 쓰는 창구
-    window.__deck = { beats: beats.map(b => ({ scene: scenes[b.scene].id, step: b.step, t: b.t })), seekBeat: i => seek(beats[i].t), setTheme, setLang };
+    window.__deck = { beats: beats.map(b => ({ scene: scenes[b.scene].id, step: b.step, t: b.t })), seekBeat: i => seek(beats[i].t), seekTime: seek, sceneStart: id => scenes.find(s => s.id === id).start, duration: () => tl.duration(), setTheme, setLang };
   }
   return { config: o => Object.assign(cfg, o), scene, start, L, grid, tx, code };
 })();
 </script>
 
 <script>
-/* ======================= 장면 (이 부분만 자료에 맞게 바꾼다) =======================
-   예시 주제: 배송 경로 탐색. 무대(왼쪽)에는 늘 같은 배송 지도, 작업대(오른쪽)에는 그 장면의 설명. */
-deck.config({ langs: ['ko', 'en'] });   // 한 언어만 쓰면 ['ko'] 로 두고 글을 문자열로 쓴다
+/* ======================= 장면 갤러리 (MS 그룹) =======================
+   예시 주제: 점심시간 카페의 대기 줄. 도착률 λ = 분당 2명, 줄 선 사람 L = 22명, 대기 W = L ÷ λ = 11분.
+   예약 주문 + 키오스크를 더하면 대기가 4.5분이 된다. 숫자는 모두 예시이며 장면 사이에서 서로 맞는다.
+   쓰려는 장면의 deck.scene(...) 블록과 아래 공통 부품(U, C, css, say, person, cup, cafeStage)을 발표 파일로 옮긴다. */
+deck.config({ langs: ['ko', 'en'] });
 
-// 늘 같은 자리의 기준 예제: 차고지 하나와 배송지 여섯 곳
-const STOPS = [[120, 120], [470, 90], [520, 330], [300, 420], [90, 560], [430, 600]], DEPOT = [300, 260];
-function deliveryMap(s, k) {
-  const g = k.svg(s, k.L.stage.x, k.L.stage.y, 640, 700);
-  for (let i = 0; i <= 6; i++) { k.sv('line', { x1: 0, y1: i * 110 + 20, x2: 620, y2: i * 110 + 20, style: 'stroke:var(--card2);stroke-width:14' }, g); k.sv('line', { x1: i * 100 + 10, y1: 0, x2: i * 100 + 10, y2: 690, style: 'stroke:var(--card2);stroke-width:14' }, g); }
-  const route = k.sv('polyline', { points: [DEPOT, ...STOPS, DEPOT].map(p => p.join(',')).join(' '), style: 'fill:none;stroke:var(--accent);stroke-width:6;stroke-linejoin:round' }, g);
-  k.sv('rect', { x: DEPOT[0] - 22, y: DEPOT[1] - 22, width: 44, height: 44, rx: 8, style: 'fill:var(--c-orange)' }, g);
-  const dots = STOPS.map(([x, y], i) => { k.sv('circle', { cx: x, cy: y, r: 18, style: 'fill:var(--card3)' }, g); return k.sv('text', { x, y: y + 7, 'text-anchor': 'middle', style: 'font:700 20px var(--font);fill:var(--fg)' }, g, String(i + 1)); });
-  return { g, route, dots };
+const U = (ko, en) => deck.tx([ko, en]);   // 한 문자열 안에 두 언어를 넣을 때
+// 역할 색: 한 덱 안에서 한 역할은 늘 같은 색
+const C = { wait: 'var(--c-orange)', make: 'var(--c-indigo)', pick: 'var(--c-blue)', cost: 'var(--c-pink)', save: 'var(--c-green)', ours: 'var(--accent)', gray: 'var(--c-gray)' };
+const css = (e, st) => { e.style.cssText += ';' + st; return e; };
+const say = (k, p, x, y, w, cls, html, st) => { const b = k.box(p, x, y, w, null, cls, html); return st ? css(b, st) : b; };   // 글 상자
+const fix1 = v => v.toFixed(1);
+
+// 사람 모양: 원 머리 + 둥근 몸, 발 위치가 (x, y). g 는 나타나기, m 은 배경 움직임, lit 은 세어 짚을 때 쓴다
+function person(k, parent, x, y, sc, fill) {
+  const o = k.sv('g', { transform: `translate(${x} ${y})` }, parent), m = k.sv('g', {}, o), g = k.sv('g', {}, m);
+  const shape = (p, f) => { k.sv('circle', { cx: 0, cy: -38 * sc, r: 11 * sc, style: `fill:${f}` }, p); k.sv('rect', { x: -18 * sc, y: -26 * sc, width: 36 * sc, height: 26 * sc, rx: 13 * sc, style: `fill:${f}` }, p); };
+  shape(g, fill);
+  const lit = k.sv('g', { style: 'opacity:0' }, g); shape(lit, 'var(--accent)');
+  return { m, g, lit };
+}
+// 컵: 바닥 가운데가 (x, y)
+function cup(k, parent, x, y, sc, fill) {
+  const g = k.sv('g', {}, parent);
+  k.sv('path', { d: `M${x - 16 * sc} ${y - 34 * sc} H${x + 16 * sc} L${x + 11 * sc} ${y} H${x - 11 * sc} Z`, style: `fill:${fill}` }, g);
+  k.sv('rect', { x: x - 19 * sc, y: y - 42 * sc, width: 38 * sc, height: 8 * sc, rx: 4 * sc, style: `fill:${fill}` }, g);
+  return g;
+}
+// 늘 같은 자리의 기준 예제: 카운터 하나, 바리스타 둘, 굽이굽이 선 손님 22명. o.x, o.y, o.scale 로 작게 놓을 수 있다
+function cafeStage(s, k, o = {}) {
+  const at = k.L.stage, sc = o.scale ?? 1;
+  const g = k.svg(s, o.x ?? at.x, o.y ?? at.y, 640, 700);
+  if (sc !== 1) Object.assign(g.style, { transformOrigin: '0 0', transform: `scale(${sc})` });
+  const lane = 'M130 270 H510 A65 65 0 0 1 510 400 H130 A65 65 0 0 0 130 530 H510';
+  k.sv('path', { d: lane, style: 'fill:none;stroke:var(--card2);stroke-width:70;stroke-linecap:round;stroke-linejoin:round' }, g);
+  const road = k.sv('path', { d: lane, style: 'fill:none;stroke:none' }, g);
+  const pts = Array.from({ length: 22 }, (_, i) => road.getPointAtLength(30 + i * 70));
+  k.sv('text', { x: 320, y: 58, 'text-anchor': 'middle', style: 'font:600 24px var(--font);fill:var(--fg2)' }, g, ['바리스타 2명', '2 baristas']);
+  const baristas = [190, 450].map(x => person(k, g, x, 150, 1.5, 'var(--c-indigo)').g);
+  const counter = k.sv('rect', { x: 40, y: 122, width: 560, height: 70, rx: 18, style: 'fill:var(--card3)' }, g);
+  k.sv('text', { x: 320, y: 168, 'text-anchor': 'middle', style: 'font:600 24px var(--font);fill:var(--fg)' }, g, ['카운터', 'Counter']);
+  cup(k, g, 90, 122, .9, 'var(--fg2)'); cup(k, g, 550, 122, .9, 'var(--fg2)');
+  const people = pts.map(p => person(k, g, p.x, p.y + 26, 1, 'var(--c-gray)'));
+  // 잔잔한 배경 움직임: 손님이 한 걸음 앞으로 나섰다가 제자리로 돌아온다
+  const dx = pts.map((p, i) => ((i ? pts[i - 1].x : p.x) - p.x) * .45), dy = pts.map((p, i) => ((i ? pts[i - 1].y : p.y - 70) - p.y) * .45), ms = people.map(p => p.m);
+  k.ambient(a => { a.to(ms, { x: i => dx[i], y: i => dy[i], duration: .9, ease: 'sine.inOut', stagger: .05 }, 0).to(ms, { x: 0, y: 0, duration: .9, ease: 'sine.inOut', stagger: .05 }, '+=.6'); });
+  return { g, customers: people.map(p => p.g), lit: people.map(p => p.lit), baristas, counter, pts };
 }
 
-
-// Illustrative values throughout: initial route 28.4; accepted search 25.6 → 22.1.
-const roles = { items: [
-  ['<b style="color:var(--c-indigo);background:var(--bg);padding:4px 6px;border-radius:8px">제안</b>', '<b style="color:var(--c-indigo);background:var(--bg);padding:4px 6px;border-radius:8px">Propose</b>'],
-  ['<b style="color:var(--c-orange);background:var(--bg);padding:4px 6px;border-radius:8px">평가</b>', '<b style="color:var(--c-orange);background:var(--bg);padding:4px 6px;border-radius:8px">Evaluate</b>'],
-  ['<b style="color:var(--c-yellow);background:var(--bg);padding:4px 6px;border-radius:8px">편집</b>', '<b style="color:var(--c-yellow);background:var(--bg);padding:4px 6px;border-radius:8px">Edit</b>'],
-  ['<b style="color:var(--accent);background:var(--bg);padding:4px 6px;border-radius:8px">라이브러리</b>', '<b style="color:var(--accent);background:var(--bg);padding:4px 6px;border-radius:8px">Library</b>'] ] };
-function head(id, part, en, title, english, on) {
-  return {eyebrow: [id+' · '+part, id+' · '+en], title:[title,english], nav:{items:roles.items,on}};
-}
-function label(k,g,x,y,ko,en,size=22,color='--fg2',anchor='start') {
-  return k.sv('text',{x,y,'text-anchor':anchor,style:`font:500 ${size}px var(--font);fill:var(${color})`},g,[ko,en]);
-}
-function mapQuiet(s,k) {const m=deliveryMap(s,k); k.hide(m.route); return m;}
-function stopRing(k,m,i,color) {return k.sv('circle',{cx:STOPS[i][0],cy:STOPS[i][1],r:29,style:`fill:none;stroke:var(${color});stroke-width:5`},m.g);}
-
-deck.scene('MS-01',head('MS-01','표지','Cover','짧은 프로그램이 여섯 배송지의 방문 순서를 정한다','A short program orders six delivery stops',0),(s,k)=>{
-  const m=deliveryMap(s,k); k.hide(m.route);
-  k.box(s,k.L.bench.x,330,k.L.bench.w,160,'t-big',['한 차고지에서 출발해\n여섯 곳을 잇는다','One depot.\nSix delivery stops.']).style.whiteSpace='pre-line';
-  k.box(s,k.L.bench.x,535,k.L.bench.w,70,'t-h3',['제안하고, 검사하고, 비용을 낮춘다','Propose, check, and lower the cost']);
-  k.codeBox(s,k.L.bench.x,660,k.L.bench.w,80,'route = argmin(orders(), cost)',28);
-  k.step(['배송 차량은 차고지에서 출발해 여섯 곳을 돌고 돌아온다. 이 순서를 바꾸면 거리와 지연이 함께 바뀐다.','The van leaves the depot, visits six stops and comes back. Changing the order changes both distance and lateness.'],()=>{k.draw(m.route,.2,1.2); k.hold(1.2);});
+// MS-01 표지 ---------------------------------------------------------------
+deck.scene('MS-01', {}, (s, k) => {
+  say(k, s, 110, 340, 1050, '', [`점심 대기 11분을<br><span style="color:var(--accent)">4.5분</span>으로`, `Cutting the lunch wait<br>from 11 to <span style="color:var(--accent)">4.5 min</span>`], 'font:800 104px/1.12 var(--font);letter-spacing:-.04em');
+  say(k, s, 110, 620, 1000, '', ['예약 주문과 키오스크로 카페 줄을 줄이는 방법', 'How pre-orders and kiosks shorten the café queue'], 'font:400 34px/1.4 var(--font);color:var(--fg2)');
+  cafeStage(s, k, { x: 1160, y: 220, scale: .85 });
 });
 
-deck.scene('MS-02',head('MS-02','문제 카드','Problem cards','네 방법은 같은 여섯 배송지에서 서로 다른 제약을 가진다','Four methods face different limits on the same six stops',1),(s,k)=>{
-  mapQuiet(s,k);
-  const data=[
-    [['고정 규칙','Fixed rules'],['+ 바로 실행한다','+ Runs immediately'],['− 시간창 변화에 약하다','− Brittle time windows'],'--fg2'],
-    [['최적화 솔버','Optimisation solver'],['+ 제약을 정확히 반영한다','+ Enforces constraints'],['− 탐색 시간이 길다','− Long search time'],'--c-orange'],
-    [['학습 모델','Learned model'],['+ 빠르게 순서를 제안한다','+ Proposes orders quickly'],['− 학습 데이터가 필요하다','− Needs training data'],'--c-indigo'],
-    [['프로그램 탐색','Program search'],['+ 규칙을 코드로 남긴다','+ Keeps executable rules'],['− 틀린 코드를 낼 수 있다','− Can emit broken code'],'--accent']];
-  const cards=[],weak=[];
-  k.grid(k.L.bench,2,2,24).forEach((r,i)=>{const c=k.box(s,r.x,r.y,r.w,r.h,'card'); cards.push(c);
-    const t=k.box(c,26,30,r.w-52,70,'t-h3',data[i][0]);t.style.color=`var(${data[i][3]})`;
-    k.box(c,26,132,r.w-52,60,'t-callout',data[i][1]); weak.push(k.box(c,26,225,r.w-52,68,'t-callout',data[i][2]));});
+// MS-02 큰 숫자와 원인 분해 ---------------------------------------------------
+deck.scene('MS-02', { eyebrow: ['MS-02 · 큰 숫자와 원인 분해', 'MS-02 · Big number and cause split'], title: ['점심시간 평균 대기 11분 중 절반 넘는 시간이 주문 줄에서 쓰인다', 'More than half of the 11-minute lunch wait is spent in the order line'] }, (s, k) => {
+  const big = say(k, s, 110, 236, 700, '', `<span class="n" style="font:800 300px/1 var(--font);letter-spacing:-.05em;font-variant-numeric:tabular-nums">0</span><span style="font:700 110px/1 var(--font);margin-left:18px;color:var(--fg2)">${U('분', ' min')}</span>`, 'white-space:nowrap');
+  say(k, s, 790, 340, 1000, '', `<div class="t-h2">${U('점심시간 평균 대기 시간', 'Average lunch wait')}</div><div class="t-body" style="color:var(--fg2);margin-top:8px">${U('12–13시 · 도착률 분당 2명 · 줄 선 사람 22명', '12–1 pm · 2 arrivals per min · 22 people in line')}</div>`);
+  const barY = 650, gap = 12, tot = 1700 - 2 * gap, parts = [['주문 줄', 'Order line', 6.5, C.wait], ['제조', 'Making', 3, C.make], ['픽업', 'Pickup', 1.5, C.pick]];
+  const whole = css(k.box(s, 110, barY, tot, 90, ''), 'border-radius:16px;background:var(--card3)');
+  const wholeT = say(k, s, 140, barY + 28, null, '', ['대기 11분 전체', 'The whole 11-min wait'], 'font:600 28px/1.2 var(--font);color:var(--fg2)');
+  let x = 110;
+  const segs = [], nums = [], labels = [];
+  parts.forEach(([ko, en, v, col], i) => {
+    const w = tot * v / 11;
+    const seg = css(k.box(s, x + i * gap, barY, w, 90, ''), `border-radius:16px;background:${col}`);
+    gsap.set(seg, { x: -i * gap, autoAlpha: 0 }); segs.push(seg);
+    const lab = say(k, s, x + i * gap, barY + 106, null, '', `<div style="font:500 28px/1.2 var(--font);color:var(--fg2)">${U(ko, en)}</div><div style="font:700 52px/1.15 var(--font);font-variant-numeric:tabular-nums"><span class="n">0.0</span>${U('분', ' min')}</div>`);
+    k.hide(lab); labels.push(lab); nums.push([lab.querySelector('.n'), v]);
+    x += w;
+  });
+  k.hide(wholeT);
+  k.step(['점심시간 손님 한 명의 평균 대기가 0에서 11분까지 올라간다.', 'The average lunch guest waits, and the count climbs from 0 to 11 minutes.'], () => {
+    k.count(big.querySelector('.n'), 0, 11, .2, 1.4); k.appear([whole, wholeT], 1.2);
+  });
+  k.step(['막대가 주문 줄 6.5분, 제조 3분, 픽업 1.5분으로 갈라진다. 주문 줄 하나가 나머지 둘을 합한 4.5분보다 2분 길다.', 'The bar splits into 6.5 min of order line, 3 of making and 1.5 of pickup. The order line alone is 2 minutes longer than the other two combined (4.5).'], () => {
+    k.fade(wholeT, 0, .2); k.to(segs, { autoAlpha: 1, duration: .2 }, 0); k.fade(whole, 0, .2);
+    k.to(segs, { x: 0, duration: .55, ease: 'power2.out' }, .3);
+    k.appear(labels, .7, { stagger: .12 });
+    nums.forEach(([n, v], i) => k.count(n, 0, v, .8 + i * .12, .9, fix1));
+  });
+});
+
+// MS-03 기존 방법 비교 카드 ----------------------------------------------------
+function iconBarista(k, g) {
+  person(k, g, 48, 122, 1.3, 'var(--c-indigo)'); person(k, g, 100, 122, 1.3, 'var(--c-indigo)');
+  k.sv('circle', { cx: 120, cy: 30, r: 24, style: 'fill:var(--accent)' }, g);
+  k.sv('path', { d: 'M120 18 V42 M108 30 H132', style: 'fill:none;stroke:var(--bg);stroke-width:6;stroke-linecap:round' }, g);
+}
+function iconMenu(k, g) {
+  k.sv('rect', { x: 28, y: 12, width: 94, height: 126, rx: 14, style: 'fill:var(--card2)' }, g);
+  [[44, 56], [66, 64], [88, 50], [110, 58]].forEach(([y, w], i) => k.sv('line', { x1: 46, x2: 46 + w, y1: y, y2: y, style: `stroke:var(--fg2);stroke-width:8;stroke-linecap:round;${i > 1 ? 'stroke-dasharray:6 12;opacity:.55' : ''}` }, g));
+}
+function iconPre(k, g) {
+  k.sv('rect', { x: 44, y: 8, width: 62, height: 134, rx: 14, style: 'fill:var(--card2);stroke:var(--fg2);stroke-width:5' }, g);
+  k.sv('line', { x1: 66, x2: 84, y1: 24, y2: 24, style: 'stroke:var(--fg3);stroke-width:5;stroke-linecap:round' }, g);
+  cup(k, g, 72, 98, 1.2, 'var(--fg2)');
+  k.sv('circle', { cx: 104, cy: 120, r: 22, style: 'fill:var(--accent)' }, g);
+  k.sv('path', { d: 'M94 120 l8 8 l14 -16', style: 'fill:none;stroke:var(--bg);stroke-width:6;stroke-linecap:round;stroke-linejoin:round' }, g);
+}
+function iconKiosk(k, g) {
+  k.sv('rect', { x: 66, y: 84, width: 18, height: 38, style: 'fill:var(--card3)' }, g);
+  k.sv('rect', { x: 38, y: 120, width: 74, height: 14, rx: 7, style: 'fill:var(--card3)' }, g);
+  k.sv('rect', { x: 26, y: 10, width: 98, height: 76, rx: 12, style: 'fill:var(--card2);stroke:var(--fg2);stroke-width:5' }, g);
+  k.sv('circle', { cx: 75, cy: 48, r: 9, style: 'fill:var(--accent)' }, g);
+  k.sv('circle', { cx: 75, cy: 48, r: 23, style: 'fill:none;stroke:var(--accent);stroke-width:4' }, g);
+}
+deck.scene('MS-03', { eyebrow: ['MS-03 · 기존 방법 비교 카드', 'MS-03 · Existing-method cards'], title: ['기존 방법 넷은 각각 대기 시간의 한 부분만 건드린다', 'Each of the four existing methods touches only one part of the wait'] }, (s, k) => {
+  const items = [
+    [iconBarista, ['바리스타 추가', 'Add a barista'], ['제조가 빨라진다', 'Making gets faster'], ['주문 줄 6.5분은 그대로다', 'The 6.5-min order line stays']],
+    [iconMenu, ['메뉴 축소', 'Shrink the menu'], ['고르는 시간이 짧아진다', 'Choosing takes less time'], ['원하는 메뉴가 없는 손님이 생긴다', 'Some guests lose their drink']],
+    [iconPre, ['예약 주문', 'Pre-order'], ['줄 서기 전에 주문이 끝난다', 'Orders finish before the queue'], ['현장 손님은 쓸 수 없다', 'Walk-in guests cannot use it']],
+    [iconKiosk, ['키오스크', 'Kiosk'], ['주문을 여러 대가 나눠 받는다', 'Several machines take orders'], ['처음 쓰는 손님이 헤맨다', 'First-time users get lost']],
+  ];
+  const sign = (c, t, ch) => [`<span style="color:${c};font-weight:800;display:inline-block;width:30px">${ch}</span>${t[0]}`, `<span style="color:${c};font-weight:800;display:inline-block;width:30px">${ch}</span>${t[1]}`];
+  const cards = k.grid(k.L.full, 2, 2, 24).map((c, i) => {
+    const [icon, name, plus, minus] = items[i];
+    const card = k.box(s, c.x, c.y, c.w, c.h, 'card');
+    icon(k, k.svg(card, 44, (c.h - 150) / 2, 150, 150));
+    say(k, card, 232, 62, null, 't-h2', name);
+    card.plus = say(k, card, 232, 142, null, 't-body', sign('var(--c-green)', plus, '+'));
+    card.minus = say(k, card, 232, 212, null, 't-body', sign('var(--c-red)', minus, '−'));
+    return card;
+  });
   k.hide(cards);
-  k.step(['네 방법은 같은 배송지 여섯 곳의 순서를 정한다. 카드의 + 줄이 각 방법의 장점이다.','All four methods order the same six stops. The + line on each card is its strength.'],()=>{k.appear(cards,0,{stagger:.16});k.hold(1.4);});
-  k.step(['노란 줄이 각 방법의 약점이다. 프로그램 탐색은 틀린 코드를 낼 수 있어서, 실행 전에 검사한다.','The yellow lines mark each weakness. Program search can emit broken code, so it checks programs before running them.'],()=>{weak.forEach(e=>k.mark(e,'hi'));k.hold(1.8);});
+  k.step(['바리스타 추가, 메뉴 축소, 예약 주문, 키오스크 네 카드가 차례로 놓인다.', 'Four cards appear in turn: add a barista, shrink the menu, pre-order and kiosk.'], () => { k.appear(cards, 0, { stagger: .2 }); });
+  k.step(['바리스타 추가 카드에서 가장 큰 구간인 주문 줄 6.5분이 그대로 남는다.', 'The add-a-barista card leaves the largest segment, the 6.5-min order line, untouched.'], () => {
+    k.focus(cards[0], [cards[1], cards[2], cards[3]], 0); k.underline(cards[0].minus, .35);
+  });
+  k.step(['예약 주문 카드는 줄 서기 전에 주문이 끝나, 6.5분짜리 주문 줄을 직접 줄인다.', 'The pre-order card finishes orders before anyone queues, which cuts the 6.5-min order line directly.'], () => {
+    k.unfocus(cards[0], [cards[2]], 0); k.focus(cards[2], [cards[0], cards[1], cards[3]], 0); k.underline(cards[2].plus, .35);
+  });
 });
 
-deck.scene('MS-03',head('MS-03','식 카드와 무대 강조','Formula and stage','첫 순서의 비용은 거리 18.4와 지연 벌점 10을 더한 28.4다','The first order costs 28.4: distance 18.4 plus a penalty of 10',1),(s,k)=>{
-  const m=mapQuiet(s,k),b=k.L.bench;
-  const f=k.formula(s,b.x,b.y,b.w,['경로 비용 = 거리 + 10 × 늦은 배송 수','Route cost = distance + 10 × late stops'],'cost(r) = lib.route_length(r) + 10 * late(r)');
-  const v=k.box(s,b.x,b.y+240,b.w,200,'card');
-  k.box(v,30,25,900,50,'t-h3',['거리 18.4 · 늦은 배송 1곳','Distance 18.4 · 1 late stop']);
-  const n=k.box(v,30,100,800,80,'t-big',['0.0','0.0']);
-  const late=stopRing(k,m,4,'--c-red');k.hide([f,v,late]);
-  k.step(['차량은 1번부터 6번까지 차례로 들르고 차고지로 돌아온다. 이 순서의 이동 거리는 18.4 km다.','The van visits stops 1 to 6 in turn and returns. This order travels 18.4 km.'],()=>{k.draw(m.route,.1,1.2);k.hold(1.1);});
-  k.step(['평가기는 이동 거리에 늦은 배송 한 곳마다 10을 더한다. 거리가 같아도 늦은 곳이 많으면 비용이 커진다.','The evaluator adds 10 for every late stop. At equal distance, more late stops mean higher cost.'],()=>{k.appear(f);k.hold(1.8);});
-  k.step(['5번은 약속 시간보다 늦게 도착한다. 그래서 비용은 18.4에 10을 더한 28.4다.','Stop 5 is reached after its time window. The cost is 18.4 plus 10, which is 28.4.'],()=>{k.appear([v,late],0,{stagger:.2});k.count(n,0,28.4,.3,.9,v=>v.toFixed(1));k.hold(1.1);});
+// MS-04 같은 자리 예제와 식 카드 ------------------------------------------------
+deck.scene('MS-04', { eyebrow: ['MS-04 · 같은 자리 예제와 식 카드', 'MS-04 · Same-place example and formula card'], title: ['평균 대기 시간은 줄 선 사람 수를 도착률로 나눈 값이다', 'The average wait is the number of people in line divided by the arrival rate'] }, (s, k) => {
+  const cafe = cafeStage(s, k); k.hide(cafe.customers);
+  const count = say(k, s, 110, 800, 640, '', `<div style="display:flex;align-items:baseline;gap:16px"><span class="t-h3" style="color:var(--fg2)">${U('줄 선 사람', 'In line')}</span><span class="n t-big">0</span><span class="t-h2">${U('명', 'people')}</span></div>`);
+  const f = k.formula(s, 810, 230, 1000, ['평균 대기 시간 = 줄 선 사람 ÷ 도착률', 'Average wait = people in line ÷ arrival rate'], 'W = L / λ');
+  f.querySelector('.code').style.fontSize = '34px';
+  const chips = k.grid({ x: 810, y: 410, w: 1000, h: 120 }, 3, 1, 20).map((c, i) => {
+    const [sy, ko, en] = [['L', '줄 선 사람', 'People in line'], ['λ', '분당 도착', 'Arrivals per min'], ['W', '평균 대기', 'Average wait']][i];
+    return say(k, s, c.x, c.y, c.w, 'card2', `<div style="display:flex;align-items:center;gap:18px;height:120px;padding:0 24px"><span style="font:800 56px/1 var(--font);color:var(--accent)">${sy}</span><span class="t-callout">${U(ko, en)}</span></div>`);
+  });
+  const cell = (cls, n, ko, en) => `<div data-p="${cls}" style="text-align:center"><div style="font:800 120px/1 var(--font);font-variant-numeric:tabular-nums">${n}</div><div style="font:500 24px/1.3 var(--font);color:var(--fg2);margin-top:12px">${U(ko, en)}</div></div>`;
+  const op = (cls, o) => `<div data-p="${cls}" style="font:700 80px/1 var(--font);color:var(--fg3);padding-top:22px">${o}</div>`;
+  const calc = say(k, s, 810, 570, 1000, 'card', `<div style="display:flex;justify-content:center;gap:36px;padding:44px 0 36px">${cell('a', '<span class="n">0</span>', '줄 선 사람 L', 'People in line L')}${op('o1', '÷')}${cell('b', '2', '분당 도착 λ', 'Arrivals per min λ')}${op('o2', '=')}${cell('c', `<span class="n">0</span><span style="font-size:56px;margin-left:6px">${U('분', ' min')}</span>`, '평균 대기 W', 'Average wait W')}</div>`);
+  k.hide([f, calc, ...chips]); k.hide([...calc.querySelectorAll('[data-p]')]);
+  const P = n => calc.querySelector(`[data-p="${n}"]`);
+  k.step(['점심시간 손님이 하나씩 카운터 앞 줄에 서서 22명이 된다.', 'Lunch guests join the line one by one until 22 people are waiting.'], () => {
+    k.appear(cafe.customers, 0, { stagger: .08 }); k.count(count.querySelector('.n'), 0, 22, .1, 1.8);
+  });
+  k.step(['카운터 앞 줄이 L, 분당 도착하는 손님이 λ, 기다리는 시간이 W로 식 카드에 놓인다.', 'The line becomes L, guests arriving per minute become λ and the time spent waiting becomes W on the formula card.'], () => {
+    k.appear(f, 0); k.appear(chips, .35, { stagger: .12 });
+  });
+  k.step(['줄 선 사람 22명을 하나씩 세어 분당 도착 2명으로 나누면 W는 11분이다.', 'Counting the 22 people in line and dividing by 2 arrivals per minute gives W = 11 minutes.'], () => {
+    k.appear(calc, 0); k.appear(P('a'), .2); k.count(P('a').querySelector('.n'), 0, 22, .3, 1.3);
+    k.to(cafe.lit, { opacity: 1, duration: .2, stagger: .06 }, .3);
+    k.appear([P('o1'), P('b')], 1.7, { stagger: .15 }); k.appear([P('o2'), P('c')], 2.1, { stagger: .15 });
+    k.count(P('c').querySelector('.n'), 0, 11, 2.3, 1);
+  });
 });
 
-deck.scene('MS-04',head('MS-04','개수 줄이기와 이동','Filter and move','검사를 통과한 640개 후보 가운데 비용이 낮은 30개를 남긴다','Search keeps the 30 lowest-cost candidates among 640 valid ones',1),(s,k)=>{
-  mapQuiet(s,k);const b=k.L.bench,g=k.svg(s,b.x,b.y,b.w,b.h);
-  let seed=904;const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
-  const counter=k.box(s,b.x+20,b.y+5,400,85,'t-big',['1,200','1,200']);
-  k.box(s,b.x+430,b.y+35,500,60,'t-callout',['후보 프로그램 · 예시 값','Candidate programs · illustrative']);
-  const axes=k.sv('g',{},g);k.sv('path',{d:'M 90 155 V 600 H 925',style:'fill:none;stroke:var(--fg2);stroke-width:2'},axes);
-  label(k,axes,500,665,'거리 (km)','Distance (km)');label(k,axes,100,125,'비용 ↓','Cost ↓');
-  [['15','15',95],['20','20',480],['25','25',900]].forEach(([a,c,x])=>label(k,axes,x,630,a,c,20));
-  label(k,axes,68,600,'20','20',20,'--fg2','end');label(k,axes,68,180,'60','60',20,'--fg2','end');
-  const pts=Array.from({length:1200},(_,i)=>{const x=45+rand()*900,y=125+rand()*480;const distance=15+rand()*10,cost=20+rand()*40;return {e:k.sv('circle',{cx:x,cy:y,r:2.7,style:'fill:var(--c-indigo)'},g),x,y,distance,cost};});
-  const valid=pts.slice(0,640),invalid=pts.slice(640),best=[...valid].sort((a,b)=>a.cost-b.cost).slice(0,30);
-  const selected=k.box(s,b.x+600,b.y+75,350,55,'t-h3',['상위 30개','Best 30']);selected.style.color='var(--accent)';k.hide([axes,selected]);
-  k.step(['검사기는 후보 1,200개 가운데 실행되지 않는 560개를 지운다. 남은 640개만 시뮬레이션한다.','The checker removes 560 of 1,200 candidates that do not run. Only the remaining 640 are simulated.'],()=>{k.fade(invalid.map(p=>p.e),.1,.5);k.count(counter,1200,640,.1,.8);k.hold(1.3);});
-  k.step(['평가기는 640개를 이동 거리와 비용으로 놓는다. 아래쪽에 있을수록 비용이 낮다.','The evaluator places the 640 by distance and cost. Lower points cost less.'],()=>{k.appear(axes,0,{y:0});valid.forEach(p=>k.to(p.e,{attr:{cx:90+(p.distance-15)/10*835,cy:600-(p.cost-20)/40*420},duration:.6},.2));k.hold(1.5);});
-  k.step(['탐색은 가장 아래쪽 30개만 남긴다. 다음 라운드의 편집은 이 30개에서 시작한다.','Search keeps only the lowest 30. The next round of edits starts from them.'],()=>{k.dim(valid.filter(p=>!best.includes(p)).map(p=>p.e),0,.25);k.to(best.map(p=>p.e),{fill:'var(--accent)',attr:{r:5}},.1);k.appear(selected,.3);k.hold(1.4);});
+// MS-05 단위 격자 깔때기 ---------------------------------------------------------
+deck.scene('MS-05', { eyebrow: ['MS-05 · 단위 격자 깔때기', 'MS-05 · Unit-grid funnel'], title: ['문헌 검토는 세 번 걸러 논문 1,240편을 38편으로 줄인다', 'A literature review filters 1,240 papers down to 38 in three passes'] }, (s, k) => {
+  const N = 124, COLS = 14, SZ = 52, ST = 62, X0 = 110, Y0 = 276, PX = 1030, PW = 780;
+  const cells = Array.from({ length: N }, (_, i) => {
+    const c = css(k.box(s, X0 + (i % COLS) * ST, Y0 + Math.floor(i / COLS) * ST, SZ, SZ, ''), 'border-radius:10px;background:var(--c-blue)');
+    c.on = css(k.el('div', '', c), 'position:absolute;inset:0;border-radius:inherit;background:var(--accent);opacity:0');
+    return c;
+  });
+  say(k, s, 110, 222, null, '', `<div style="display:flex;align-items:center;gap:14px"><span style="width:26px;height:26px;border-radius:7px;background:var(--c-blue);display:inline-block"></span><span class="t-callout" style="color:var(--fg2)">${U('1칸 = 10편', '1 cell = 10 papers')}</span></div>`);
+  const left = say(k, s, 110, 836, 860, '', `<div style="display:flex;align-items:baseline;gap:18px"><span class="t-h3" style="color:var(--fg2)">${U('남은 논문', 'Papers left')}</span><span class="n t-big">0</span><span class="t-h2">${U('편', '')}</span></div>`);
+  const stages = [
+    { ko: '중복', en: 'Duplicates', n: 410, from: 83, cap: ['저자와 제목이 같은 논문 41칸, 410편이 중복 더미로 빠져 830편이 남는다.', 'The 41 cells, 410 papers, with the same authors and title slide to the duplicates pile and 830 papers remain.'] },
+    { ko: '제목·초록 검토', en: 'Title and abstract screening', n: 620, from: 21, cap: ['제목·초록 검토에서 62칸, 620편이 빠져 210편이 남는다.', 'Title and abstract screening removes 62 cells, 620 papers, and 210 remain.'] },
+    { ko: '전문 검토', en: 'Full-text screening', n: 172, from: 4, cap: ['전문 검토에서 17칸, 172편이 빠지고, 남은 4칸이 약 38편의 분석 대상이다.', 'Full-text screening removes 17 cells, 172 papers, and the last 4 cells hold about 38 papers.'] },
+  ];
+  let end = N;
+  stages.forEach((st, i) => {
+    const py = Y0 + i * 189;
+    st.card = k.box(s, PX, py, PW, 170, 'card');
+    st.num = say(k, st.card, 24, 14, PW - 48, '', `<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t-h3">${U(st.ko, st.en)}</span><span style="font:700 34px/1 var(--font);font-variant-numeric:tabular-nums"><span class="n">0</span>${U('편', ' papers')}</span></div>`).querySelector('.n');
+    st.idx = []; for (let j = end - 1; j >= st.from; j--) st.idx.push(j); end = st.from;
+    st.dx = st.idx.map((j, t) => (PX + 24 + (t % 22) * 32 + 13) - (X0 + (j % COLS) * ST + 26));
+    st.dy = st.idx.map((j, t) => (py + 64 + Math.floor(t / 22) * 32 + 13) - (Y0 + Math.floor(j / COLS) * ST + 26));
+  });
+  const piles = stages.map(st => st.card); piles.forEach(p => s.insertBefore(p, cells[0]));
+  const about = say(k, s, 384, Y0 + 8, null, 't-h2', ['4칸 ≈ 38편', '4 cells ≈ 38 papers']);
+  k.hide([...piles, about]);
+  const left0 = left.querySelector('.n'), remain = [1240, 830, 210, 38];
+  k.step(['검색에서 모은 논문 1,240편이 124칸으로 놓이고, 한 칸은 10편이다.', 'The 1,240 papers from the search fill 124 cells, one cell per 10 papers.'], () => {
+    k.appear(cells, 0, { stagger: .008, y: 0, scale: .6 }); k.appear(piles, .6, { stagger: .12 }); k.count(left0, 0, 1240, .1, 1.3);
+  });
+  stages.forEach((st, i) => {
+    k.step(st.cap, () => {
+      const cs = st.idx.map(j => cells[j]);
+      k.to(cs, { x: n => st.dx[n], y: n => st.dy[n], scale: .5, duration: .6, stagger: .02 }, 0);
+      k.count(st.num, 0, st.n, 0, cs.length * .02 + .5);
+      k.count(left0, remain[i], remain[i + 1], 0, cs.length * .02 + .5);
+      if (i === 2) { k.to(cells.slice(0, 4).map(c => c.on), { opacity: 1, duration: .4 }, 1.3); k.appear(about, 1.5); }
+    });
+  });
 });
 
-deck.scene('MS-05',head('MS-05','공통 부분 강조와 접기','Highlight and fold','세 프로그램의 같은 거리 계산을 라이브러리 함수 하나로 묶는다','One library function replaces the same distance calculation in three programs',3),(s,k)=>{
-  mapQuiet(s,k);const b=k.L.bench,rows=k.grid({...b,h:510},1,3,20),old=[],replacement=[],marks=[],nums=[];
-  const expr='sum(dist(a, b) for a, b in legs(r))';
-  rows.forEach((r,i)=>{k.box(s,r.x,r.y,r.w,r.h,'card');
-    k.box(s,r.x+22,r.y+12,300,32,'t-meta',[`후보 ${i+1} · 토큰 수`,`Candidate ${i+1} · tokens`]);
-    nums.push(k.box(s,r.x+820,r.y+12,130,40,'t-h3',['29','29']));
-    const c=k.codeBox(s,r.x+22,r.y+58,r.w-44,88,`score = «${expr}»\nreturn score + ${[10,14,12][i]} * late(r)`,20);old.push(c);
-    const shared=c.querySelector('.mk');Object.assign(shared.style,{background:'transparent',boxShadow:'none'});marks.push(shared);
-    const n=k.codeBox(s,r.x+22,r.y+58,r.w-44,88,`score = lib.route_length(r)\nreturn score + ${[10,14,12][i]} * late(r)`,20);replacement.push(n);});
-  const lib=k.formula(s,b.x,b.y+550,b.w,['라이브러리 · 경로의 각 구간 길이를 합한다','Library · sum the distance of every leg'],'lib.route_length(r)');k.hide([...replacement,lib]);
-  k.step(['세 후보 모두 구간 거리를 같은 식으로 더한다. 노란 표시가 그 공통 부분이다.','All three candidates sum leg distances the same way. The yellow marks show the shared part.'],()=>{k.to(marks,{backgroundColor:'var(--fill)',boxShadow:'0 0 0 2px var(--c-yellow)'},0);k.hold(1.8);});
-  k.step(['라이브러리는 이 식을 lib.route_length(r) 하나로 만든다. 세 후보의 해당 부분이 함수 호출 하나로 바뀐다.','The library turns this expression into lib.route_length(r). Each candidate now calls that one function.'],()=>{k.fold(old,lib,0,.6);k.appear(replacement,.7,{stagger:.1});k.hold(1.2);});
-  k.step(['후보 하나의 길이는 29토큰에서 15토큰으로 줄어든다. 다음 라운드부터 제안과 편집이 이 함수를 쓴다.','Each candidate shrinks from 29 to 15 tokens. From the next round, proposals and edits use this function.'],()=>{nums.forEach(n=>k.count(n,29,15,0,.7));k.mark(lib,'acc',.3);k.hold(1.5);});
-});
-
-deck.scene('MS-06',head('MS-06','교체와 계단선','Swap and step line','한 토큰씩 바꾸는 탐색은 개선된 비용만 다음 시도로 넘긴다','Single-token edits carry only improved costs into the next attempt',2),(s,k)=>{
-  const a=k.L.stage,b=k.L.bench;
-  k.box(s,a.x,a.y,a.w,540,'card');k.box(s,a.x+28,a.y+25,a.w-56,70,'t-h3',['현재 경로 평가 프로그램','Current route-scoring program']);
-  k.codeBox(s,a.x+28,a.y+130,a.w-56,200,'def cost(r):\n  d = lib.route_length(r)\n  return d + (',24);
-  const tokens=['10 * late(r))','14 * late(r))','14 * late_minutes(r))','12 * late(r))'].map(t=>k.codeBox(s,a.x+58,a.y+255,a.w-90,60,t,24));k.hide(tokens.slice(1));
-  k.box(s,a.x+28,a.y+375,a.w-56,100,'t-callout',['동일 평가기: 거리 + 10 × 지연 수\n수정 코드는 방문 순서만 제안한다','Fixed evaluator: distance + 10 × late stops\nEdited code only proposes visiting orders']).style.whiteSpace='pre-line';
-  const status=k.box(s,a.x,a.y+570,a.w,95,'card t-h3',['시작 비용 28.4','Starting cost 28.4']);status.style.padding='25px';
-  const g=k.svg(s,b.x,b.y,b.w,b.h);const X=i=>100+i*240,Y=v=>550-(v-20)*37;
-  k.sv('path',{d:'M 100 100 V 550 H 900',style:'fill:none;stroke:var(--fg2);stroke-width:2'},g);label(k,g,100,65,'최선 비용 ↓','Best cost ↓',26);label(k,g,850,625,'시도','Attempt');
-  [20,24,28].forEach(v=>label(k,g,80,Y(v)+7,String(v),String(v),22,'--fg2','end'));
-  [0,1,2,3].forEach(i=>label(k,g,X(i),590,String(i),String(i),22,'--fg2','middle'));
-  const costs=[28.4,25.6,25.6,22.1],segments=[],dots=[];
-  costs.slice(1).forEach((v,j)=>{const i=j+1;segments.push(k.sv('path',{d:`M ${X(i-1)} ${Y(costs[i-1])} H ${X(i)} V ${Y(v)}`,style:'fill:none;stroke:var(--accent);stroke-width:5'},g));dots.push(k.sv('circle',{cx:X(i),cy:Y(v),r:10,style:`fill:${i===2?'var(--bg)':'var(--c-green)'};stroke:var(${i===2?'--c-red':'--c-green'});stroke-width:4`},g));
-    label(k,g,X(i),Y(v)-28,i===2?'거절 27.2':v.toFixed(1),i===2?'Reject 27.2':v.toFixed(1),22,i===2?'--c-red':'--c-green','middle');});
-  // Attempt outcomes remain hidden until the corresponding segment is drawn.
-  const outcomes=[...g.querySelectorAll('text')].slice(-3);k.hide([...segments,...dots,...outcomes]);
-  const caps=[['편집기는 지연 가중치 10을 14로 바꾼다. 비용이 28.4에서 25.6으로 내려가서, 이 프로그램을 채택한다.','The editor changes the lateness weight from 10 to 14. Cost drops from 28.4 to 25.6, so the program is kept.'],['다음 편집은 late를 late_minutes로 바꾼다. 비용이 27.2로 올라가서 되돌리고, 최선 비용 25.6을 유지한다.','The next edit swaps late for late_minutes. Cost rises to 27.2, so it is undone and the best stays 25.6.'],['채택한 프로그램에서 14를 12로 바꾸자 비용이 22.1이 된다. 계단선은 채택된 편집에서만 내려간다.','Changing 14 to 12 in the kept program gives 22.1. The step line only drops at accepted edits.']];
-  caps.forEach((cap,i)=>k.step(cap,()=>{
-    k.fade(tokens[i],0,.2);
-    if(i===2){k.appear(tokens[1],.2,{y:0,d:.2});k.fade(tokens[1],.55,.2);}
-    const at=i===2?.75:.2;
-    k.appear(tokens[i+1],at,{y:0});
-    const changed=i===1?tokens[i+1].querySelector('.fn'):tokens[i+1].querySelector('.num');
-    k.flash(changed,at+.2);k.mark(status,i===1?'bad':'ok',at+.3);
-    k.draw(segments[i],at+.4,.6);k.appear([dots[i],outcomes[i]],at+1,{y:0});k.hold(1.2);
+// MS-06 과정 따라가기 ---------------------------------------------------------------
+function placeCounter(k, g) {
+  person(k, g, 360, 190, 1.7, 'var(--c-indigo)');
+  k.sv('rect', { x: 70, y: 170, width: 410, height: 90, rx: 16, style: 'fill:var(--card3)' }, g);
+  k.sv('rect', { x: 130, y: 112, width: 100, height: 66, rx: 10, style: 'fill:var(--card2)' }, g);
+  k.sv('rect', { x: 142, y: 124, width: 76, height: 24, rx: 5, style: 'fill:var(--accent)' }, g);
+  [152, 180, 208].forEach(x => k.sv('circle', { cx: x, cy: 162, r: 5, style: 'fill:var(--fg3)' }, g));
+  person(k, g, 100, 286, 1.5, 'var(--c-gray)');
+}
+function placeMachine(k, g) {
+  k.sv('rect', { x: 130, y: 56, width: 290, height: 156, rx: 24, style: 'fill:var(--card3)' }, g);
+  k.sv('rect', { x: 150, y: 34, width: 250, height: 32, rx: 12, style: 'fill:var(--card2)' }, g);
+  k.sv('rect', { x: 160, y: 86, width: 230, height: 28, rx: 9, style: 'fill:var(--c-indigo)' }, g);
+  k.sv('rect', { x: 186, y: 128, width: 44, height: 26, rx: 6, style: 'fill:var(--card2)' }, g);
+  k.sv('rect', { x: 320, y: 128, width: 44, height: 26, rx: 6, style: 'fill:var(--card2)' }, g);
+  k.sv('circle', { cx: 275, cy: 150, r: 24, style: 'fill:var(--card2);stroke:var(--fg2);stroke-width:4' }, g);
+  k.sv('line', { x1: 275, y1: 150, x2: 288, y2: 136, style: 'stroke:var(--accent);stroke-width:4;stroke-linecap:round' }, g);
+  k.sv('rect', { x: 150, y: 214, width: 250, height: 16, rx: 8, style: 'fill:var(--card2)' }, g);
+  cup(k, g, 208, 214, .85, 'var(--fg2)'); cup(k, g, 342, 214, .85, 'var(--fg2)');
+}
+function placeShelf(k, g) {
+  [[60, 'x'], [480, 'x']].forEach(([x]) => k.sv('rect', { x, y: 40, width: 10, height: 230, rx: 5, style: 'fill:var(--card3)' }, g));
+  [136, 256].forEach(y => k.sv('rect', { x: 60, y, width: 430, height: 14, rx: 7, style: 'fill:var(--card3)' }, g));
+  [150, 250, 350].forEach(x => cup(k, g, x, 136, .9, 'var(--fg2)'));
+  [190, 290].forEach(x => cup(k, g, x, 256, .9, 'var(--fg2)'));
+  cup(k, g, 390, 256, .9, 'var(--accent)');
+}
+deck.scene('MS-06', { eyebrow: ['MS-06 · 과정 따라가기', 'MS-06 · Following the process'], title: ['주문 한 건은 접수, 제조, 픽업 세 곳을 지나며 11분을 쓴다', 'One order passes through order, making and pickup and takes 11 minutes'], nav: { items: [['문제', 'Problem'], ['과정', 'Process'], ['결과', 'Result']], on: 1 } }, (s, k) => {
+  const defs = [[placeCounter, '접수', 'Order', C.wait, 6.5], [placeMachine, '제조', 'Making', C.make, 3], [placeShelf, '픽업', 'Pickup', C.pick, 1.5]];
+  const cells = k.grid({ x: 110, y: 330, w: 1700, h: 500 }, 3, 1, 24), cx = cells.map(c => c.x + c.w / 2);
+  const cards = cells.map((c, i) => {
+    const [draw, ko, en, col] = defs[i], card = k.box(s, c.x, c.y, c.w, c.h, 'card');
+    draw(k, k.svg(card, 0, 0, 550, 290));
+    say(k, card, 32, 300, null, 't-h2', `<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${col};margin-right:12px"></span>${U(ko, en)}`);
+    card.time = say(k, card, 32, 372, null, '', `<span class="n t-big">0.0</span><span class="t-h2" style="margin-left:6px">${U('분', ' min')}</span>`);
+    k.hide(card.time); return card;
+  });
+  const tr = k.svg(s, 0, 0, 1920, 1080);
+  k.sv('line', { x1: cx[0], y1: 300, x2: cx[2], y2: 300, style: 'stroke:var(--card3);stroke-width:6;stroke-linecap:round' }, tr);
+  cx.forEach(x => k.sv('circle', { cx: x, cy: 300, r: 10, style: 'fill:var(--card3)' }, tr));
+  const tok = k.sv('g', {}, tr);
+  k.sv('path', { d: 'M-34 -52 H34 L26 0 H-26 Z', style: 'fill:var(--accent)' }, tok);
+  k.sv('rect', { x: -40, y: -64, width: 80, height: 12, rx: 6, style: 'fill:var(--accent)' }, tok);
+  k.sv('text', { x: 0, y: -17, 'text-anchor': 'middle', style: 'font:700 22px var(--font);fill:var(--bg)' }, tok, '#17');
+  gsap.set(tok, { x: cx[0], y: 288, autoAlpha: 0 });
+  const total = say(k, s, 110, 852, 1700, '', ['6.5 + 3.0 + 1.5 = 11분', '6.5 + 3.0 + 1.5 = 11 min'], 'text-align:center;font:700 34px/1.3 var(--font)');
+  k.hide(total);
+  const caps = [
+    ['주문 17번이 카운터에서 접수되기까지 6.5분이 걸린다.', 'Order 17 takes 6.5 minutes to be accepted at the counter.'],
+    ['주문 17번이 에스프레소 머신으로 넘어가 3.0분 동안 만들어진다.', 'Order 17 moves to the espresso machine and is made in 3.0 minutes.'],
+    ['완성된 컵이 픽업 선반에 올라 1.5분 뒤 손님 손에 들어간다. 세 구간을 더하면 11분이다.', 'The finished cup sits on the pickup shelf for 1.5 minutes before the guest takes it. The three stretches add up to 11 minutes.'],
+  ];
+  caps.forEach((cap, i) => k.step(cap, () => {
+    const others = cards.filter((_, j) => j !== i);
+    if (i) { k.unfocus(cards[i - 1], [cards[i]], 0); k.to(tok, { x: cx[i], duration: .8 }, 0); } else k.to(tok, { autoAlpha: 1, duration: .3 }, 0);
+    k.focus(cards[i], others, 0);
+    k.appear(cards[i].time, i ? .6 : .3); k.count(cards[i].time.querySelector('.n'), 0, defs[i][4], i ? .7 : .4, .9, fix1);
+    if (i === 2) k.appear(total, 1.7);
   }));
 });
 
-deck.scene('MS-07',head('MS-07','타자와 검사','Type and check','제안 모델은 등록되지 않은 함수 이름을 고친 뒤 검사를 통과한다','The proposer passes the check after repairing an unknown function name',0),(s,k)=>{
-  mapQuiet(s,k);const b=k.L.bench;
-  const card=k.box(s,b.x,b.y,b.w,270,'card');k.box(card,28,25,900,45,'t-h3',['제안 모델 · 후보 프로그램','Proposer · candidate program']).style.color='var(--c-indigo)';
-  const bad=k.codeBox(card,28,110,b.w-56,100,'',24),good=k.codeBox(card,28,110,b.w-56,100,'',24);k.hide(good);
-  const checker=k.box(s,b.x,b.y+320,b.w,230,'card');k.box(checker,28,25,900,45,'t-h3',['검사기 · 함수 이름과 반환값','Checker · names and return value']).style.color='var(--c-orange)';
-  const err=k.box(checker,28,105,920,90,'t-callout',['실패 · route_len은 등록되지 않은 함수다','Fail · route_len is not a registered function']);
-  const ok=k.box(checker,28,105,920,90,'t-callout',['통과 · lib.route_length가 숫자를 반환한다','Pass · lib.route_length returns a number']);k.hide([err,ok]);
-  k.step(['제안 모델은 거리와 지연을 더하는 프로그램을 쓴다. 실행하기 전에 검사기가 이 코드를 읽는다.','The proposer writes a program adding distance and lateness. The checker reads it before anything runs.'],()=>{k.type(bad,'return route_len(r) + 10 * late(r)',0,1.3,true);k.hold(1);});
-  k.step(['검사기는 등록되지 않은 함수 route_len을 찾아 거절한다. 오류 내용은 제안 모델에게 그대로 돌려준다.','The checker finds route_len, which is not registered, and rejects it. The error message goes back to the proposer.'],()=>{k.appear(err);k.mark(checker,'bad',.2);k.hold(1.8);});
-  k.step(['제안 모델은 이름을 lib.route_length로 고쳐 다시 쓴다. 검사기는 반환값이 숫자인 것을 확인하고 통과시킨다.','The proposer fixes the name to lib.route_length. The checker confirms a numeric return and passes it.'],()=>{k.fade([bad,err],0,.2);k.appear(good,.2,{y:0});k.type(good,'return lib.route_length(r) + 10 * late(r)',.2,1.3,true);k.unmark(checker,.2);k.appear(ok,1.5);k.mark(checker,'ok',1.7);k.hold(1.2);});
+// MS-07 전과 후 변형 ---------------------------------------------------------------
+deck.scene('MS-07', { eyebrow: ['MS-07 · 전과 후 변형', 'MS-07 · Before and after'], title: ['예약 주문과 키오스크를 더하면 대기가 11분에서 4.5분으로 줄어든다', 'Adding pre-orders and a kiosk cuts the wait from 11 to 4.5 minutes'] }, (s, k) => {
+  const rows = [['주문 줄', 'Order line', 6.5, 1.5, C.wait], ['제조', 'Making', 3, 2.5, C.make], ['픽업', 'Pickup', 1.5, .5, C.pick]], PX = 140, X0 = 400, y = i => 320 + i * 180;
+  const ghosts = [], bars = [], vals = [];
+  rows.forEach(([ko, en, b, a, col], i) => {
+    say(k, s, 110, y(i), 280, '', `<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${col};margin-right:12px"></span>${U(ko, en)}`, 'font:600 34px/100px var(--font)');
+    ghosts.push(css(k.box(s, X0, y(i), b * PX, 100, ''), 'box-sizing:border-box;border:3px dashed var(--fg3);border-radius:16px'));
+    bars.push(css(k.box(s, X0, y(i), 0, 100, ''), `border-radius:16px;background:${col}`));
+    vals.push(say(k, s, X0 + b * PX + 18, y(i), null, '', `<span class="n">0.0</span>${U('분', ' min')}`, 'font:700 44px/100px var(--font);font-variant-numeric:tabular-nums;white-space:nowrap'));
+  });
+  k.hide([...ghosts, ...vals]);
+  const br = k.svg(s, 1470, 320, 60, 460);
+  k.sv('path', { d: 'M0 0 H20 V460 H0 M20 230 H48', style: 'fill:none;stroke:var(--fg3);stroke-width:4;stroke-linecap:round;stroke-linejoin:round' }, br);
+  const tot = say(k, s, 1548, 478, 262, '', `<div style="font:500 24px/1.2 var(--font);color:var(--fg2)">${U('합계', 'Total')}</div><div style="font:700 64px/1.1 var(--font);font-variant-numeric:tabular-nums"><span class="n">0.0</span>${U('분', ' min')}</div><div class="delta" style="font:700 34px/1.3 var(--font);color:var(--accent);opacity:0">−6.5${U('분', ' min')}</div>`);
+  k.hide([br, tot]);
+  k.step(['주문 줄 6.5분, 제조 3.0분, 픽업 1.5분 막대가 쌓여 지금의 대기 합계 11분이 된다.', 'Bars of 6.5 min order line, 3.0 making and 1.5 pickup add up to today\'s 11-minute wait.'], () => {
+    k.to(bars, { width: i => rows[i][2] * PX, duration: .7, stagger: .15 }, 0);
+    k.appear(vals, .5, { stagger: .15, y: 0 }); vals.forEach((v, i) => k.count(v.querySelector('.n'), 0, rows[i][2], .5 + i * .15, .7, fix1));
+    k.appear([br, tot], 1.4); k.count(tot.querySelector('.n'), 0, 11, 1.5, .8, fix1);
+  });
+  k.step(['예약 주문과 키오스크로 막대가 1.5분, 2.5분, 0.5분으로 줄어 합계가 4.5분이 되고, 6.5분이 빠진다.', 'With pre-orders and a kiosk the bars shrink to 1.5, 2.5 and 0.5 minutes, the total becomes 4.5 and 6.5 minutes disappear.'], () => {
+    k.to(ghosts, { autoAlpha: 1, duration: .05 }, 0);
+    k.to(bars, { width: i => rows[i][3] * PX, duration: .8, stagger: .1 }, .15);
+    vals.forEach((v, i) => k.count(v.querySelector('.n'), rows[i][2], rows[i][3], .15 + i * .1, .8, fix1));
+    k.count(tot.querySelector('.n'), 11, 4.5, .15, 1, fix1); k.to(tot.querySelector('.delta'), { opacity: 1, duration: .4 }, 1.1);
+  });
 });
 
-deck.scene('MS-08',head('MS-08','분해 막대와 판정 줄','Score breakdown','다음 배송지는 합산 점수가 2번보다 4.2 낮은 3번이다','Stop 3 wins with a total score 4.2 lower than stop 2',1),(s,k)=>{
-  const m=mapQuiet(s,k),b=k.L.bench,g=k.svg(s,b.x,b.y,b.w,540),colors=['--c-blue','--c-orange','--c-yellow'];
-  [['거리','Distance'],['지연','Lateness'],['우회','Detour']].forEach((t,i)=>{k.sv('rect',{x:30+i*290,y:20,width:20,height:20,rx:4,style:`fill:var(${colors[i]})`},g);label(k,g,62+i*290,39,...t);});
-  const vals=[[5.2,6,2],[4,8,2],[4.8,4,1],[6,5,2]],bars=[];
-  vals.forEach((parts,i)=>{const y=115+i*100;label(k,g,65,y+30,`${i+1}번`,`Stop ${i+1}`,24,'--fg','end');let x=100;
-    parts.forEach((v,j)=>{const r=k.sv('rect',{x,y,width:v*43,height:52,style:`fill:var(${colors[j]})`},g);bars.push(r);label(k,g,x+v*43/2,y+33,v.toFixed(1),v.toFixed(1),21,'--fg','middle');x+=v*43;});label(k,g,x+18,y+34,parts.reduce((a,v)=>a+v,0).toFixed(1),parts.reduce((a,v)=>a+v,0).toFixed(1),25,'--fg');});
-  const decision=k.box(s,b.x,b.y+570,b.w,110,'card t-h3',['3번 9.8 < 2번 14.0\n3번이 4.2 낮아 3번으로 간다','Stop 3: 9.8 < stop 2: 14.0\nChoose stop 3, lower by 4.2']);Object.assign(decision.style,{padding:'18px 25px',whiteSpace:'pre-line'});
-  const ring=stopRing(k,m,2,'--accent');k.hide([g,decision,ring]);
-  k.step(['평가기는 다음 배송지 후보 네 곳마다 거리·지연·우회 점수를 쌓는다. 합계는 13.2, 14.0, 9.8, 13.0이다.','For each of four next stops the evaluator stacks distance, lateness and detour. The totals are 13.2, 14.0, 9.8 and 13.0.'],()=>{k.appear(g,0,{y:0});k.to(bars,{scaleX:1,transformOrigin:'left center',stagger:.05},.2);k.hold(1.6);});
-  k.step(['차량은 합계가 가장 낮은 3번으로 간다. 2번과의 차이 4.2 가운데 4.0이 지연 점수에서 나온다.','The van heads to stop 3, the lowest total. Of its 4.2 lead over stop 2, 4.0 comes from lateness.'],()=>{k.appear([decision,ring],0,{stagger:.2});k.hold(1.8);});
+// MS-08 분해 막대와 판정 줄 ----------------------------------------------------------
+deck.scene('MS-08', { eyebrow: ['MS-08 · 분해 막대와 판정 줄', 'MS-08 · Split bars and verdict line'], title: ['월 200만원 안에서 대기를 가장 많이 줄이는 안은 예약 주문 + 키오스크다', 'Within 2 million won a month, pre-order + kiosk cuts the wait the most'] }, (s, k) => {
+  const opts = [['바리스타 추가', 'Add a barista', [0, 1.0, 0], 280], ['메뉴 축소', 'Shrink the menu', [1.0, .5, 0], 0], ['예약 주문 + 키오스크', 'Pre-order + kiosk', [5.0, .5, 1.0], 150]];
+  const roles = [[C.wait, '주문 줄 절감', 'Order line saved'], [C.make, '제조 절감', 'Making saved'], [C.pick, '픽업 절감', 'Pickup saved'], [C.cost, '월 비용', 'Monthly cost']];
+  const chip = ([c, ko, en]) => `<span style="display:inline-flex;align-items:center;gap:12px"><span style="width:22px;height:22px;border-radius:6px;background:${c}"></span><span class="t-callout" style="color:var(--fg2)">${U(ko, en)}</span></span>`;
+  say(k, s, 110, 226, null, '', `<div style="display:flex;gap:40px">${roles.map(chip).join('')}</div>`);
+  say(k, s, 110 + 380, 306, null, '', ['절감 시간', 'Minutes saved'], 'font:600 24px/1.2 var(--font);color:var(--fg2)');
+  say(k, s, 110 + 1130, 306, null, '', ['월 비용', 'Monthly cost'], 'font:600 24px/1.2 var(--font);color:var(--fg2)');
+  const rows = opts.map(([ko, en, segs, cost], i) => {
+    const row = k.box(s, 110, 350 + i * 128, 1700, 112, 'card2');
+    say(k, row, 24, 0, 340, '', [ko, en], 'font:700 28px/112px var(--font)');
+    const saved = segs.reduce((a, b) => a + b, 0), nz = segs.map((v, j) => v ? j : -1).filter(j => j >= 0);
+    let x = 380;
+    segs.forEach((v, j) => {
+      if (!v) return;
+      const r = nz.length === 1 ? '12px' : j === nz[0] ? '12px 0 0 12px' : j === nz[nz.length - 1] ? '0 12px 12px 0' : '0';
+      css(k.box(row, x, 24, v * 85, 64, ''), `background:${roles[j][0]};border-radius:${r}`); x += v * 85;
+    });
+    say(k, row, x + 16, 0, null, '', [`−${fix1(saved)}분`, `−${fix1(saved)} min`], 'font:700 30px/112px var(--font);font-variant-numeric:tabular-nums');
+    if (cost) css(k.box(row, 1130, 24, cost * 1.1, 64, ''), `background:${C.cost};border-radius:12px`);
+    say(k, row, 1130 + cost * 1.1 + 16, 0, null, '', [`${cost}만원`, `${cost / 100}M won`], 'font:700 30px/112px var(--font);font-variant-numeric:tabular-nums');
+    return row;
+  });
+  k.hide(rows);
+  const budX = 110 + 1130 + 200 * 1.1;
+  const budget = css(k.box(s, budX, 340, 0, 394, ''), 'border-left:3px dashed var(--fg3)');
+  const budT = say(k, s, budX - 110, 738, 220, '', ['예산 월 200만원', 'Budget: 2M won'], 'text-align:center;font:600 24px/1.2 var(--font);color:var(--fg2)');
+  const verdict = say(k, s, 110, 794, 1700, 'card', [`<div style="display:flex;align-items:center;justify-content:center;height:110px;font:700 34px/1.3 var(--font)"><span style="color:var(--accent);margin-right:20px">예약 주문 + 키오스크</span>6.5분 − 1.5분 = 5.0분 더 줄인다</div>`, `<div style="display:flex;align-items:center;justify-content:center;height:110px;font:700 34px/1.3 var(--font)"><span style="color:var(--accent);margin-right:20px">Pre-order + kiosk</span>saves 6.5 − 1.5 = 5.0 min more</div>`]);
+  k.hide([budget, budT, verdict]);
+  k.step(['바리스타 추가는 1.0분을 줄이는 데 월 280만원, 메뉴 축소는 1.5분에 0원, 예약 주문 + 키오스크는 6.5분에 150만원이 든다.', 'Adding a barista saves 1.0 min for 2.8M won a month, shrinking the menu saves 1.5 min for nothing, and pre-order + kiosk saves 6.5 min for 1.5M won.'], () => { k.appear(rows, 0, { stagger: .15 }); });
+  k.step(['월 200만원 선을 넘는 바리스타 추가가 빠지고, 남은 두 안 중 예약 주문 + 키오스크가 5.0분 더 줄여 선택된다.', 'Adding a barista crosses the 2M won line and drops out, and of the two remaining options pre-order + kiosk saves 5.0 min more and is chosen.'], () => {
+    k.appear([budget, budT], 0); k.mark(rows[0], 'bad', .3);
+    k.focus(rows[2], [rows[0], rows[1]], .5); k.mark(rows[2], 'ok', .5); k.appear(verdict, .9);
+  });
 });
 
-deck.scene('MS-09',head('MS-09','기준선 결과 막대','Results with references','프로그램 탐색은 두 도시에서 긴 시간 솔버의 기준 비용보다 낮다','Program search beats the long-budget solver reference in both cities',3),(s,k)=>{
-  const panels=k.grid(k.L.full,2,1,30),bars=[],refs=[],ours=[];
-  const methods=[['고정 규칙','Fixed rules'],['가까운 순서','Nearest first'],['학습 모델','Learned model'],['솔버 1×','Solver 1×'],['프로그램 탐색','Program search']];
-  panels.forEach((p,city)=>{const c=k.box(s,p.x,p.y,p.w,p.h,'card'),g=k.svg(c,0,0,p.w,p.h),values=city?[32,30.5,28.6,27.4,24.8]:[28.4,26.7,25.8,24.2,22.1],ref=city?26:23;
-    label(k,g,30,52,`도시 ${city?'B':'A'} · 비용 ↓`,`City ${city?'B':'A'} · cost ↓`,30,'--fg');label(k,g,30,93,'동일 시간 1× · 예시 값','Same budget 1× · illustrative',21);
-    const X=v=>230+v/36*480;
-    methods.forEach((t,i)=>{const y=145+i*92;label(k,g,210,y+30,...t,22,i===4?'--accent':'--fg2','end');const r=k.sv('rect',{x:230,y,width:X(values[i])-230,height:44,rx:6,style:`fill:var(${i===4?'--accent':'--card3'})`},g);bars.push(r);if(i===4)ours.push(r);label(k,g,X(values[i])+13,y+30,values[i].toFixed(1),values[i].toFixed(1),23,'--fg');});
-    refs.push(k.sv('line',{x1:X(ref),x2:X(ref),y1:125,y2:580,style:'stroke:var(--c-orange);stroke-width:3;stroke-dasharray:8 7'},g));
-    refs.push(label(k,g,30,635,`솔버 10× 시간 기준선 · ${ref.toFixed(1)}`,`Solver at 10× time · ${ref.toFixed(1)}`,24,'--c-orange'));
-  });k.hide([...bars,...refs]);
-  k.step(['같은 계산 시간에서 프로그램 탐색의 비용은 도시 A 22.1, 도시 B 24.8로 가장 낮다.','At the same compute time, program search costs 22.1 in city A and 24.8 in city B, the lowest.'],()=>{k.appear(bars,0,{stagger:.07,y:0});k.hold(1.4);});
-  k.step(['점선은 솔버에 시간을 10배 준 비용이다. 프로그램 탐색은 이 기준보다도 0.9, 1.2 낮다.','The dashed lines show the solver given 10× the time. Program search is still 0.9 and 1.2 lower.'],()=>{k.appear(refs,0,{y:0,stagger:.1});k.flash(ours,.5);k.hold(1.7);});
+// MS-09 결과 막대와 기준선 -----------------------------------------------------------
+deck.scene('MS-09', { eyebrow: ['MS-09 · 결과 막대와 기준선', 'MS-09 · Result bars and reference line'], title: ['예약 주문 + 키오스크만 평일 점심과 주말 오후 모두 목표 5분 안에 든다', 'Only pre-order + kiosk meets the 5-min target in both time slots'] }, (s, k) => {
+  const names = [['현재', 'Today'], ['바리스타 추가', 'Add a barista'], ['메뉴 축소', 'Shrink the menu'], ['예약 주문 + 키오스크', 'Pre-order + kiosk']];
+  const panels = [[['평일 점심', 'Weekday lunch'], [11, 10, 9.5, 4.5]], [['주말 오후', 'Weekend afternoon'], [7, 6.5, 6, 3]]];
+  const X0 = 290, SC = 34, bars = [], vals = [], refs = [], rings = [];
+  panels.forEach(([title, data], p) => {
+    const card = k.box(s, 110 + p * 862, 232, 838, 600, 'card');
+    say(k, card, 28, 24, null, 't-h2', title);
+    data.forEach((v, i) => {
+      const ours = i === 3, y = 110 + i * 106;
+      say(k, card, 28, y, 250, '', names[i], `font:${ours ? 700 : 500} 24px/64px var(--font);color:${ours ? 'var(--accent)' : 'var(--fg2)'};white-space:nowrap`);
+      const bar = css(k.box(card, X0, y, 0, 64, ''), `border-radius:12px;background:${ours ? 'var(--accent)' : 'var(--c-gray)'}`);
+      bar.w = v * SC; bars.push(bar); if (ours) rings.push(bar);
+      vals.push(say(k, card, v * SC + 14 < 5 * SC ? 5 * SC + X0 + 14 : X0 + v * SC + 14, y, null, '', [`${fix1(v)}분`, `${fix1(v)} min`], 'font:700 28px/64px var(--font);font-variant-numeric:tabular-nums;white-space:nowrap'));
+    });
+    refs.push(css(k.box(card, X0 + 5 * SC, 92, 0, 440, ''), 'border-left:3px dashed var(--fg2)'));
+    refs.push(say(k, card, X0 + 5 * SC - 80, 544, 160, '', ['목표 5분', 'Target 5 min'], 'text-align:center;font:600 24px/1.2 var(--font);color:var(--fg2)'));
+  });
+  k.hide([...vals, ...refs]);
+  k.step(['평일 점심은 현재 11.0분에서 예약 주문 + 키오스크로 4.5분이 되고, 주말 오후는 7.0분에서 3.0분이 된다.', 'Weekday lunch drops from 11.0 to 4.5 minutes with pre-order + kiosk, and weekend afternoon from 7.0 to 3.0.'], () => {
+    k.to(bars, { width: (n, t) => t.w, duration: .7, stagger: .08 }, 0); k.appear(vals, .5, { stagger: .08, y: 0 });
+  });
+  k.step(['목표 5분 선 안쪽에는 예약 주문 + 키오스크 두 막대만 들어온다. 주말 오후 메뉴 축소는 6.0분으로 선을 넘는다.', 'Only the two pre-order + kiosk bars land inside the 5-minute line. Shrinking the menu on the weekend afternoon stays over it at 6.0 minutes.'], () => {
+    k.appear(refs, 0); rings.forEach(r => k.mark(r, 'ok', .5));
+  });
+});
+
+// MS-10 결론 세 줄 -------------------------------------------------------------------
+deck.scene('MS-10', { eyebrow: ['MS-10 · 결론 세 줄', 'MS-10 · Three takeaways'], title: ['예약 주문과 키오스크가 두 시간대의 대기를 목표 5분 안으로 줄인다', 'Pre-orders and a kiosk bring the wait inside the 5-minute target in both time slots'] }, (s, k) => {
+  const rows = [
+    [11, v => Math.round(v), '분', 'min', '점심 평균 대기 11분 중 주문 줄이 6.5분이다.', 'The order line takes 6.5 of the 11-minute average lunch wait.'],
+    [6.5, v => '−' + fix1(v), '분', 'min', '예약 주문과 키오스크로 평균 대기가 11분에서 4.5분이 된다.', 'Pre-order + kiosk brings the average wait from 11 to 4.5 minutes.'],
+    [4.5, fix1, '분', 'min', '평일 점심 4.5분, 주말 오후 3.0분으로 목표 5분 안이다.', 'Weekday lunch at 4.5 and weekend afternoon at 3.0 minutes are inside the 5-minute target.'],
+  ];
+  const caps = [
+    ['대기 11분의 절반 넘는 6.5분이 주문 줄에서 나온다. 이 구간을 줄이는 안을 찾는다.', 'More than half of the 11 minutes, 6.5, comes from the order line, so the search targets that stretch.'],
+    ['예약 주문은 주문 줄을 6.5분에서 1.5분으로, 키오스크는 접수를 나눠 받아 대기 합계를 11분에서 4.5분으로 낮춘다.', 'Pre-orders cut the order line from 6.5 to 1.5 minutes, and the kiosk shares order-taking so the total falls from 11 to 4.5 minutes.'],
+    ['두 시간대 모두 목표 5분 선 안에 들어, 같은 개선이 점심 밖에서도 통한다.', 'Both time slots land inside the 5-minute line, so the same change works outside lunch as well.'],
+  ];
+  const cards = rows.map(([v, fmt, ko, en, tko, ten], i) => k.box(s, 110, 232 + i * 214, 1700, 190, 'card',
+    `<div style="display:flex;align-items:center;height:190px;padding:0 56px;gap:56px"><div style="width:520px;font:800 112px/1 var(--font);letter-spacing:-.04em;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap"><span class="n">0</span><span style="font-size:56px;margin-left:8px">${U(ko, en)}</span></div><div style="font:600 34px/1.4 var(--font)">${U(tko, ten)}</div></div>`));
+  k.hide(cards);
+  rows.forEach(([v, fmt], i) => k.step(caps[i], () => { k.appear(cards[i], 0); k.count(cards[i].querySelector('.n'), 0, v, .25, .9, fmt); }));
 });
 
 deck.start();
